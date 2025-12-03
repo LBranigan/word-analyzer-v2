@@ -360,6 +360,23 @@ a:hover { color: var(--color-primary-light); }
     transition: transform var(--transition-base);
 }
 
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+}
+
+@media (max-width: 1024px) {
+    .sidebar-overlay {
+        display: block;
+    }
+}
+
 .sidebar-brand {
     display: flex;
     align-items: center;
@@ -2249,6 +2266,11 @@ a:hover { color: var(--color-primary-light); }
 
     .sidebar.open {
         transform: translateX(0);
+    }
+
+    .sidebar.open + .sidebar-overlay {
+        opacity: 1;
+        pointer-events: auto;
     }
 
     .main-content {
