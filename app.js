@@ -75,7 +75,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2024-12-03 17:45';
+const BUILD_TIMESTAMP = '2024-12-03 18:02';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -100,7 +100,9 @@ window.addEventListener('userAuthenticated', async (event) => {
 });
 
 // ============ SECTION NAVIGATION ============
-function showSection(sectionName) {
+let isNavigatingBack = false; // Flag to prevent double history push
+
+function showSection(sectionName, pushHistory = true) {
     const allSections = document.querySelectorAll('.page-section');
     allSections.forEach(s => s.classList.remove('active'));
 
@@ -118,7 +120,39 @@ function showSection(sectionName) {
     if (sectionName === 'camera') {
         initCamera();
     }
+
+    // Push to browser history (unless navigating via back button)
+    if (pushHistory && !isNavigatingBack) {
+        history.pushState({ section: sectionName }, '', `#${sectionName}`);
+    }
 }
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', (event) => {
+    isNavigatingBack = true;
+
+    if (event.state && event.state.section) {
+        showSection(event.state.section, false);
+    } else {
+        // Default to audio section if no state
+        const hash = window.location.hash.slice(1);
+        if (hash && document.getElementById(`${hash}-section`)) {
+            showSection(hash, false);
+        } else {
+            showSection('audio', false);
+        }
+    }
+
+    isNavigatingBack = false;
+});
+
+// Initialize history state on load
+window.addEventListener('DOMContentLoaded', () => {
+    const hash = window.location.hash.slice(1);
+    if (hash && document.getElementById(`${hash}-section`)) {
+        history.replaceState({ section: hash }, '', `#${hash}`);
+    }
+});
 
 function updateProgress(step) {
     const stepOrder = ['setup', 'audio', 'capture', 'highlight', 'results'];
