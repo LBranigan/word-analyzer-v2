@@ -2004,14 +2004,24 @@ if (saveAssessmentBtn) {
             errorPatterns: state.latestErrorPatterns || null
         };
 
-        const success = await FirebaseDB.addAssessmentToStudent(studentId, assessmentData);
+        try {
+            debugLog('Attempting to save assessment for student:', studentId);
+            debugLog('Assessment data size:', JSON.stringify(assessmentData).length, 'bytes');
 
-        const saveStatus = document.getElementById('save-status');
-        if (success) {
-            saveStatus.textContent = 'Assessment saved successfully!';
-            saveStatus.className = 'save-status success';
-        } else {
-            saveStatus.textContent = 'Failed to save assessment';
+            const success = await FirebaseDB.addAssessmentToStudent(studentId, assessmentData);
+
+            const saveStatus = document.getElementById('save-status');
+            if (success) {
+                saveStatus.textContent = 'Assessment saved successfully!';
+                saveStatus.className = 'save-status success';
+            } else {
+                saveStatus.textContent = 'Failed to save assessment. Check console for details.';
+                saveStatus.className = 'save-status error';
+            }
+        } catch (error) {
+            debugError('Error in save assessment handler:', error);
+            const saveStatus = document.getElementById('save-status');
+            saveStatus.textContent = 'Error: ' + error.message;
             saveStatus.className = 'save-status error';
         }
     });

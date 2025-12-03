@@ -131,6 +131,14 @@ export async function deleteStudent(studentId) {
 // Add assessment to student
 export async function addAssessmentToStudent(studentId, assessmentData) {
     try {
+        debugLog('Saving assessment for student:', studentId);
+
+        const user = getCurrentUser();
+        if (!user) {
+            debugError('User not authenticated when saving assessment');
+            return false;
+        }
+
         const student = await getStudent(studentId);
         if (!student) {
             debugError('Student not found:', studentId);
@@ -149,7 +157,6 @@ export async function addAssessmentToStudent(studentId, assessmentData) {
 
         student.assessments.push(assessment);
 
-        const user = getCurrentUser();
         const studentRef = doc(db, 'users', user.uid, 'students', studentId);
         await setDoc(studentRef, student);
 
@@ -157,6 +164,7 @@ export async function addAssessmentToStudent(studentId, assessmentData) {
         return true;
     } catch (error) {
         debugError('Error adding assessment:', error);
+        debugError('Error details:', error.message, error.code);
         return false;
     }
 }
