@@ -410,6 +410,12 @@ a:hover { color: var(--color-primary-light); }
     flex-direction: column;
 }
 
+.brand-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
 .brand-name {
     font-family: var(--font-display);
     font-weight: 600;
@@ -418,6 +424,11 @@ a:hover { color: var(--color-primary-light); }
 }
 
 .brand-version {
+    font-size: 0.75rem;
+    color: var(--color-slate);
+}
+
+.brand-org {
     font-size: 0.75rem;
     color: var(--color-slate);
 }
