@@ -2348,6 +2348,17 @@ a:hover { color: var(--color-primary-light); }
         display: none;
     }
 
+    .highlight-toolbar .toolbar-btn {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: 0.75rem;
+        gap: 2px;
+    }
+
+    .highlight-toolbar .toolbar-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
     .toolbar-hint {
         text-align: center;
         font-size: 0.8rem;
