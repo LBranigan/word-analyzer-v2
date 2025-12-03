@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 12:49';
+const BUILD_TIMESTAMP = '2025-12-03 12:51';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2297,7 +2297,7 @@ function renderAssessmentHistory(student) {
 
     const sortedAssessments = [...student.assessments].sort((a, b) => b.date - a.date);
 
-    historyContainer.innerHTML = '<h3>Assessment History</h3>' + sortedAssessments.map(a => {
+    historyContainer.innerHTML = sortedAssessments.map(a => {
         const date = new Date(a.date);
         const dateStr = date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         const accuracy = a.accuracy || 0;
