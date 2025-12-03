@@ -820,10 +820,12 @@ a:hover { color: var(--color-primary-light); }
 .section-container {
     max-width: 700px;
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .section-container.section-wide {
     max-width: 1000px;
+    overflow-x: hidden;
 }
 
 /* Page Header */
@@ -1639,13 +1641,17 @@ a:hover { color: var(--color-primary-light); }
     margin-bottom: var(--space-xl);
     position: relative;
     min-height: 400px;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: visible;
+    max-width: 100%;
 }
 
 .canvas-wrapper canvas {
     display: block;
     cursor: crosshair;
     border-radius: var(--radius-sm);
+    max-width: 100%;
+    height: auto;
 }
 
 /* Status Message */
@@ -2332,11 +2338,18 @@ a:hover { color: var(--color-primary-light); }
     #image-section .section-container {
         padding-left: var(--space-sm);
         padding-right: var(--space-sm);
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
     .canvas-wrapper {
         padding: var(--space-sm);
         border-radius: var(--radius-md);
+        max-width: 100%;
+    }
+
+    .canvas-wrapper canvas {
+        max-width: 100%;
     }
 
     .profile-header-card {
