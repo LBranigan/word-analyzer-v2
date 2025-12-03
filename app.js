@@ -15,6 +15,7 @@ const state = {
     capturedImage: null,
     ocrData: null,
     selectedWords: new Set(),
+    selectionHistory: [], // For undo functionality
     detectedWords: [],
     audioBlob: null,
     recordedAudioBlob: null, // For video generation
@@ -40,6 +41,29 @@ const state = {
     latestErrorPatterns: null,
     viewingHistoricalAssessment: false
 };
+
+// Save current selection state for undo
+function saveSelectionState() {
+    const currentState = new Set(state.selectedWords);
+    state.selectionHistory.push(currentState);
+    // Limit history to 20 states
+    if (state.selectionHistory.length > 20) {
+        state.selectionHistory.shift();
+    }
+}
+
+// Undo last selection change
+function undoSelection() {
+    if (state.selectionHistory.length === 0) {
+        debugLog('No selection history to undo');
+        return false;
+    }
+    const previousState = state.selectionHistory.pop();
+    state.selectedWords = previousState;
+    updateWordCount();
+    redrawCanvas();
+    return true;
+}
 
 // Image cache for performance
 const imageCache = {
@@ -683,11 +707,13 @@ function handleEnd(e) {
 
     if (state.wasDragged && dragDistance >= 15) {
         // Drag selection - select words between points
+        saveSelectionState(); // Save for undo
         selectWordsBetweenPoints();
     } else {
         // Tap/click - toggle single word
         const clickedIndex = findWordAtPoint(state.startPoint);
         if (clickedIndex !== -1) {
+            saveSelectionState(); // Save for undo
             if (state.selectedWords.has(clickedIndex)) {
                 state.selectedWords.delete(clickedIndex);
             } else {
@@ -788,10 +814,17 @@ function updateWordCount() {
 // Zoom controls
 if (zoomInBtn) zoomInBtn.addEventListener('click', () => { state.zoom = Math.min(state.zoom * 1.2, 5); redrawCanvas(); });
 if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { state.zoom = Math.max(state.zoom / 1.2, 0.5); redrawCanvas(); });
-if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => { state.zoom = 1; state.panX = 0; state.panY = 0; redrawCanvas(); });
+// Undo button (was zoom-reset, now repurposed for undo)
+const undoBtn = document.getElementById('zoom-reset-btn');
+if (undoBtn) {
+    undoBtn.addEventListener('click', () => {
+        undoSelection();
+    });
+}
 
 if (resetSelectionBtn) {
     resetSelectionBtn.addEventListener('click', () => {
+        saveSelectionState(); // Save for undo
         state.selectedWords.clear();
         updateWordCount();
         redrawCanvas();
@@ -855,6 +888,7 @@ async function autoDetectSpokenWords() {
         return;
     }
 
+    saveSelectionState(); // Save for undo before auto-detect changes selection
     state.selectedWords.clear();
     updateWordCount();
 
