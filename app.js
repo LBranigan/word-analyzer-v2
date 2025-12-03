@@ -1290,7 +1290,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     const totalWords = expectedWords.length;
     const correctCount = analysis.correctCount;
     const totalErrors = (analysis.errors?.skippedWords?.length || 0) + (analysis.errors?.misreadWords?.length || 0) + (analysis.errors?.substitutedWords?.length || 0);
-    const accuracy = ((correctCount / totalWords) * 100).toFixed(1);
+    const accuracy = Math.round((correctCount / totalWords) * 100); // Integer, no decimal
 
     // Build word-by-word display
     let wordsHtml = '';
@@ -1323,9 +1323,10 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     resultsContainer.innerHTML = `
         <div class="audio-analysis-result">
             <div class="export-buttons">
-                <button id="download-pdf-btn" class="btn btn-export">📄 Generate PDF</button>
-                <button id="generate-video-btn" class="btn btn-export">🎬 Generate Video</button>
-                <button id="view-patterns-btn" class="btn btn-export">📊 View Patterns</button>
+                <button id="download-pdf-btn" class="btn btn-export">📄 PDF</button>
+                <button id="generate-video-btn" class="btn btn-export">🎬 Video</button>
+                <button id="view-patterns-btn" class="btn btn-export">📊 Patterns</button>
+                <button id="export-words-btn" class="btn btn-export">📋 Export Words</button>
             </div>
             <div id="video-generation-status" class="video-status"></div>
 
@@ -1334,7 +1335,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                 <div class="stat-box stat-error"><div class="stat-number">${totalErrors}</div><div class="stat-label">Errors</div></div>
                 <div class="stat-box stat-accuracy"><div class="stat-number">${accuracy}%</div><div class="stat-label">Accuracy</div></div>
                 ${prosodyMetrics ? `<div class="stat-box stat-wpm"><div class="stat-number">${prosodyMetrics.wpm}</div><div class="stat-label">WPM</div></div>
-                <div class="stat-box stat-prosody"><div class="stat-number">${prosodyMetrics.prosodyScore}</div><div class="stat-label">Prosody (${prosodyMetrics.prosodyGrade})</div></div>` : ''}
+                <div class="stat-box stat-prosody"><div class="stat-number">${prosodyMetrics.prosodyScore}</div><div class="stat-label">${prosodyMetrics.prosodyGrade}</div></div>` : ''}
             </div>
 
             <div class="pronunciation-text">
@@ -1356,6 +1357,47 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     document.getElementById('download-pdf-btn')?.addEventListener('click', downloadAnalysisAsHtml2Pdf);
     document.getElementById('generate-video-btn')?.addEventListener('click', generateTranscriptVideo);
     document.getElementById('view-patterns-btn')?.addEventListener('click', viewDetailedPatterns);
+    document.getElementById('export-words-btn')?.addEventListener('click', exportSelectedWords);
+}
+
+// ============ EXPORT WORDS ============
+function exportSelectedWords() {
+    let selectedWordTexts = [];
+
+    if (state.ocrData && state.ocrData.words && state.selectedWords.size > 0) {
+        const selectedIndices = Array.from(state.selectedWords).sort((a, b) => a - b);
+        selectedWordTexts = selectedIndices.map(index => state.ocrData.words[index].text);
+    } else if (state.latestExpectedWords && state.latestExpectedWords.length > 0) {
+        selectedWordTexts = state.latestExpectedWords;
+    } else {
+        alert('No words available to export. Please run an analysis first.');
+        return;
+    }
+
+    const plainText = selectedWordTexts.join(' ');
+    const wordCount = selectedWordTexts.length;
+
+    const fileContent = `Selected Words Export
+====================
+Word Count: ${wordCount}
+Date: ${new Date().toLocaleString()}
+
+--- Words (space-separated) ---
+${plainText}
+
+--- Word List ---
+${selectedWordTexts.map((word, i) => `${i + 1}. ${word}`).join('\n')}
+`;
+
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `selected-words-${wordCount}-words-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // ============ PDF GENERATION ============
@@ -1366,13 +1408,19 @@ function downloadAnalysisAsHtml2Pdf() {
     }
 
     const pdfBtn = document.getElementById('download-pdf-btn');
-    if (pdfBtn) { pdfBtn.disabled = true; pdfBtn.textContent = 'Generating...'; }
+    const originalBtnContent = pdfBtn ? pdfBtn.innerHTML : '';
+    if (pdfBtn) {
+        pdfBtn.disabled = true;
+        pdfBtn.innerHTML = '⏳ Generating...';
+    }
 
     const analysis = state.latestAnalysis;
     const prosodyMetrics = state.latestProsodyMetrics || {};
+    const patterns = state.latestErrorPatterns;
     const totalErrors = (analysis.errors?.skippedWords?.length || 0) + (analysis.errors?.misreadWords?.length || 0) + (analysis.errors?.substitutedWords?.length || 0);
     const accuracy = analysis.correctCount > 0 ? Math.round((analysis.correctCount / (analysis.correctCount + totalErrors)) * 100) : 0;
 
+    // Build word content
     let wordsContent = '';
     if (analysis.aligned) {
         analysis.aligned.forEach(item => {
@@ -1384,47 +1432,106 @@ function downloadAnalysisAsHtml2Pdf() {
         });
     }
 
-    const printContainer = document.createElement('div');
-    printContainer.style.cssText = 'position: fixed; top: 0; left: 0; width: 794px; background: #fff; font-family: Arial, sans-serif; padding: 40px; z-index: 99999;';
-    printContainer.innerHTML = `
-        <h1 style="text-align: center; color: #1a535c; font-size: 24px;">Oral Fluency Analysis Report</h1>
-        <p style="text-align: center; color: #666; font-size: 12px;">Generated on ${new Date().toLocaleDateString()}</p>
-        <div style="display: flex; justify-content: space-around; margin: 20px 0; text-align: center;">
-            <div><div style="font-size: 32px; font-weight: bold;">${analysis.correctCount}</div><div style="font-size: 12px; color: #666;">Correct</div></div>
-            <div><div style="font-size: 32px; font-weight: bold;">${totalErrors}</div><div style="font-size: 12px; color: #666;">Errors</div></div>
-            <div><div style="font-size: 32px; font-weight: bold;">${accuracy}%</div><div style="font-size: 12px; color: #666;">Accuracy</div></div>
-            ${prosodyMetrics.wpm ? `<div><div style="font-size: 32px; font-weight: bold;">${prosodyMetrics.wpm}</div><div style="font-size: 12px; color: #666;">WPM</div></div>` : ''}
-            ${prosodyMetrics.prosodyScore ? `<div><div style="font-size: 32px; font-weight: bold;">${prosodyMetrics.prosodyScore}</div><div style="font-size: 12px; color: #666;">Prosody</div></div>` : ''}
-        </div>
-        <h3 style="color: #1a535c; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Text with Error Highlighting</h3>
-        <div style="line-height: 2; margin-bottom: 20px;">${wordsContent}</div>
-        <div style="font-size: 10px; color: #666;"><span style="color:#28a745;">■ Correct</span> <span style="color:#6c757d;">■ Skipped</span> <span style="color:#fd7e14;">■ Misread</span> <span style="color:#dc3545;">■ Substituted</span></div>
-        <p style="text-align: center; color: #999; font-size: 10px; margin-top: 30px;">Generated by Word Analyzer V2</p>
-    `;
+    // Build error sections
+    let errorsContent = '';
+    if (analysis.errors?.skippedWords?.length > 0) {
+        errorsContent += `<div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 6px;"><strong>Skipped Words (${analysis.errors.skippedWords.length}):</strong> Words were not read</div>`;
+    }
+    if (analysis.errors?.misreadWords?.length > 0) {
+        const list = analysis.errors.misreadWords.map(e => `"${e.expected}"`).join(', ');
+        errorsContent += `<div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 6px;"><strong>Misread Words (${analysis.errors.misreadWords.length}):</strong> ${list}</div>`;
+    }
 
+    // Build summary
+    let summaryContent = '';
+    if (patterns?.summary?.primaryIssues?.length > 0) {
+        summaryContent += `<div style="margin-bottom: 8px;"><strong>Primary Issues:</strong><ul style="margin: 4px 0; padding-left: 20px;">${patterns.summary.primaryIssues.slice(0, 3).map(i => `<li>${i}</li>`).join('')}</ul></div>`;
+    }
+    if (patterns?.summary?.recommendations?.length > 0) {
+        summaryContent += `<div><strong>Recommendations:</strong><ul style="margin: 4px 0; padding-left: 20px;">${patterns.summary.recommendations.slice(0, 3).map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+    }
+
+    // Build stats table (not flexbox - flexbox fails on mobile html2canvas)
+    let statCount = 3;
+    if (prosodyMetrics.wpm) statCount++;
+    if (prosodyMetrics.prosodyScore) statCount++;
+
+    let statsHtml = `<table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;"><tr>
+        <td style="text-align: center; padding: 10px; background: #f5f5f5; border-radius: 6px;"><div style="font-size: 20px; font-weight: bold; color: #333;">${analysis.correctCount || 0}</div><div style="font-size: 9px; color: #666;">Correct</div></td>
+        <td style="width: 8px;"></td>
+        <td style="text-align: center; padding: 10px; background: #f5f5f5; border-radius: 6px;"><div style="font-size: 20px; font-weight: bold; color: #333;">${totalErrors}</div><div style="font-size: 9px; color: #666;">Errors</div></td>
+        <td style="width: 8px;"></td>
+        <td style="text-align: center; padding: 10px; background: #f5f5f5; border-radius: 6px;"><div style="font-size: 20px; font-weight: bold; color: #333;">${accuracy}%</div><div style="font-size: 9px; color: #666;">Accuracy</div></td>
+        ${prosodyMetrics.wpm ? `<td style="width: 8px;"></td><td style="text-align: center; padding: 10px; background: #f5f5f5; border-radius: 6px;"><div style="font-size: 20px; font-weight: bold; color: #333;">${prosodyMetrics.wpm}</div><div style="font-size: 9px; color: #666;">WPM</div></td>` : ''}
+        ${prosodyMetrics.prosodyScore ? `<td style="width: 8px;"></td><td style="text-align: center; padding: 10px; background: #f5f5f5; border-radius: 6px;"><div style="font-size: 20px; font-weight: bold; color: #333;">${prosodyMetrics.prosodyScore}</div><div style="font-size: 9px; color: #666;">Prosody</div></td>` : ''}
+    </tr></table>`;
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+
+    // Create themed overlay to hide PDF generation
+    const overlay = document.createElement('div');
+    overlay.id = 'pdf-generation-overlay';
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #1a535c 0%, #4ecdc4 100%); z-index: 100000; display: flex; align-items: center; justify-content: center; flex-direction: column;';
+    overlay.innerHTML = `
+        <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: pdfspinner 0.8s linear infinite;"></div>
+        <p style="color: white; margin-top: 15px; font-size: 16px; font-weight: 500; font-family: -apple-system, sans-serif;">Generating PDF...</p>
+        <style>@keyframes pdfspinner { to { transform: rotate(360deg); } }</style>
+    `;
+    document.body.appendChild(overlay);
+
+    // Create content for PDF capture (behind overlay)
+    const printContainer = document.createElement('div');
+    printContainer.id = 'pdf-content-container';
+    printContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 794px; background: #ffffff; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.4; color: #333; padding: 57px; box-sizing: border-box; z-index: 99999;';
+    printContainer.innerHTML = `
+        <h1 style="text-align: center; color: #1a535c; font-size: 18px; margin: 0 0 5px 0;">Oral Fluency Analysis Report</h1>
+        <div style="text-align: center; color: #666; font-size: 10px; margin-bottom: 15px;">Generated on ${new Date().toLocaleDateString()}</div>
+        ${statsHtml}
+        <div style="font-size: 13px; font-weight: bold; color: #1a535c; border-bottom: 1px solid #ddd; padding-bottom: 3px; margin: 12px 0 8px 0;">Text with Error Highlighting</div>
+        <div style="line-height: 1.8; margin-bottom: 8px;">${wordsContent}</div>
+        <div style="font-size: 9px; color: #666; margin-bottom: 15px;">
+            <span style="color:#28a745; margin-right: 10px;">■ Correct</span>
+            <span style="color:#6c757d; margin-right: 10px;">■ Skipped</span>
+            <span style="color:#fd7e14; margin-right: 10px;">■ Misread</span>
+            <span style="color:#dc3545;">■ Substituted</span>
+        </div>
+        ${errorsContent ? `<div style="font-size: 13px; font-weight: bold; color: #1a535c; border-bottom: 1px solid #ddd; padding-bottom: 3px; margin: 12px 0 8px 0;">Error Breakdown</div>${errorsContent}` : ''}
+        ${summaryContent ? `<div style="font-size: 13px; font-weight: bold; color: #1a535c; border-bottom: 1px solid #ddd; padding-bottom: 3px; margin: 12px 0 8px 0;">Summary & Recommendations</div><div style="background: #e8f4fd; padding: 10px; border-radius: 4px; font-size: 10px;">${summaryContent}</div>` : ''}
+        <div style="text-align: center; color: #999; font-size: 8px; margin-top: 20px; font-style: italic;">Generated by Word Analyzer V2</div>
+    `;
     document.body.appendChild(printContainer);
 
-    // Use html2pdf if available, otherwise fallback to print
-    if (typeof html2pdf !== 'undefined') {
-        html2pdf().set({
+    setTimeout(() => {
+        const scale = isMobile ? 1.5 : 2;
+        const options = {
             margin: 0,
-            filename: `oral-fluency-analysis-${new Date().toISOString().slice(0, 10)}.pdf`,
+            filename: `oral-fluency-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`,
             image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(printContainer).save().then(() => {
-            document.body.removeChild(printContainer);
-            if (pdfBtn) { pdfBtn.disabled = false; pdfBtn.textContent = '📄 Generate PDF'; }
-        });
-    } else {
-        // Fallback: open print dialog
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write('<html><head><title>Oral Fluency Report</title></head><body>' + printContainer.innerHTML + '</body></html>');
-        printWindow.document.close();
-        printWindow.print();
-        document.body.removeChild(printContainer);
-        if (pdfBtn) { pdfBtn.disabled = false; pdfBtn.textContent = '📄 Generate PDF'; }
-    }
+            html2canvas: { scale, useCORS: true, logging: false, scrollX: 0, scrollY: 0, x: 0, y: 0, width: 794, height: printContainer.scrollHeight, windowWidth: 794, windowHeight: printContainer.scrollHeight, backgroundColor: '#ffffff' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: 'avoid-all' }
+        };
+
+        html2pdf().set(options).from(printContainer).outputPdf('blob')
+            .then(blob => {
+                const pdfUrl = URL.createObjectURL(blob);
+                window.open(pdfUrl, '_blank');
+                const downloadLink = document.createElement('a');
+                downloadLink.href = pdfUrl;
+                downloadLink.download = options.filename;
+                downloadLink.click();
+                if (printContainer.parentNode) document.body.removeChild(printContainer);
+                if (overlay.parentNode) document.body.removeChild(overlay);
+                if (pdfBtn) { pdfBtn.disabled = false; pdfBtn.innerHTML = originalBtnContent; }
+            })
+            .catch(err => {
+                debugError('PDF generation error:', err);
+                if (printContainer.parentNode) document.body.removeChild(printContainer);
+                if (overlay.parentNode) document.body.removeChild(overlay);
+                if (pdfBtn) { pdfBtn.disabled = false; pdfBtn.innerHTML = originalBtnContent; }
+                alert('Failed to generate PDF: ' + err.message);
+            });
+    }, 200);
 }
 
 // ============ VIDEO GENERATION ============
@@ -1806,10 +1913,11 @@ styleSheet.textContent = `
     .video-status { margin-bottom: var(--space-lg); text-align: center; }
     .video-progress { color: var(--color-primary); font-weight: 500; }
     .video-complete { color: var(--color-success-dark, #166534); font-weight: 500; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-xl); }
-    .stat-box { background: var(--color-paper); border-radius: var(--radius-md); padding: var(--space-lg); text-align: center; }
-    .stat-box .stat-number { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--color-primary); }
-    .stat-box .stat-label { font-size: 0.8rem; color: var(--color-slate); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-sm); margin-bottom: var(--space-xl); }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+    .stat-box { background: var(--color-paper); border-radius: var(--radius-md); padding: var(--space-md); text-align: center; min-width: 0; }
+    .stat-box .stat-number { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; }
+    .stat-box .stat-label { font-size: 0.7rem; color: var(--color-slate); text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .stat-correct { border-left: 4px solid var(--color-success, #22c55e); }
     .stat-error { border-left: 4px solid var(--color-error, #ef4444); }
     .stat-accuracy { border-left: 4px solid var(--color-primary); }
