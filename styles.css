@@ -2330,12 +2330,21 @@ a:hover { color: var(--color-primary-light); }
     .highlight-toolbar {
         flex-wrap: wrap;
         gap: var(--space-sm);
-        padding: var(--space-sm);
+        padding: var(--space-sm) var(--space-md);
     }
 
     .highlight-toolbar .toolbar-group {
         width: 100%;
+        justify-content: space-evenly;
+    }
+
+    .highlight-toolbar .toolbar-group:first-child {
         justify-content: center;
+        margin-bottom: var(--space-xs);
+    }
+
+    .highlight-toolbar .toolbar-divider {
+        display: none;
     }
 
     .toolbar-hint {
