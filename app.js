@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 15:25';
+const BUILD_TIMESTAMP = '2025-12-03 15:45';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -1868,8 +1868,43 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     const accuracy = Math.round((correctCount / totalWords) * 100); // Integer, no decimal
 
     // Build word-by-word display with clickable error words
+    // Create a map of hesitations by the word index they occurred before/after
+    const hesitationsByPosition = new Map();
+    if (analysis.errors.hesitations && spokenWordInfo) {
+        analysis.errors.hesitations.forEach(h => {
+            // Find which aligned word this hesitation relates to based on timing
+            const hesitationWord = spokenWordInfo[h.spokenIndex];
+            if (hesitationWord && hesitationWord.startTime) {
+                const hTime = parseFloat(hesitationWord.startTime.replace('s', ''));
+                // Find the closest aligned word by timing
+                for (let i = 0; i < analysis.aligned.length; i++) {
+                    const aligned = analysis.aligned[i];
+                    if (aligned.startTime) {
+                        const aTime = parseFloat(aligned.startTime.replace('s', ''));
+                        if (aTime >= hTime) {
+                            if (!hesitationsByPosition.has(i)) {
+                                hesitationsByPosition.set(i, []);
+                            }
+                            hesitationsByPosition.get(i).push(h);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     let wordsHtml = '';
-    analysis.aligned.forEach(item => {
+    analysis.aligned.forEach((item, idx) => {
+        // Insert hesitation markers before this word if any
+        if (hesitationsByPosition.has(idx)) {
+            hesitationsByPosition.get(idx).forEach(h => {
+                const hesType = h.type === 'filler' ? 'Filler word' : 'Pause';
+                const hesWord = escapeHtml(h.word || '...');
+                wordsHtml += `<span class="word-hesitation word-clickable" data-status="hesitation" data-type="${h.type}" data-word="${hesWord}">[${hesWord}]<span class="error-badge">hesitation</span></span> `;
+            });
+        }
+
         const safeWord = escapeHtml(item.expected);
         const safeSpoken = item.spoken ? escapeHtml(item.spoken) : '';
         let className = 'word-correct';
@@ -1926,7 +1961,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                 <div class="stat-box stat-error"><div class="stat-number">${totalErrors}</div><div class="stat-label">Errors</div></div>
                 <div class="stat-box stat-accuracy"><div class="stat-number">${accuracy}%</div><div class="stat-label">Accuracy</div></div>
                 ${prosodyMetrics ? `<div class="stat-box stat-wpm"><div class="stat-number">${prosodyMetrics.wpm}</div><div class="stat-label">WPM</div></div>
-                <div class="stat-box stat-prosody"><div class="stat-number">${prosodyMetrics.prosodyScore}</div><div class="stat-label">${prosodyMetrics.prosodyGrade}</div></div>` : ''}
+                <div class="stat-box stat-prosody"><div class="stat-number">${prosodyMetrics.prosodyScore}</div><div class="stat-label">Prosody</div><div class="stat-sublabel">${prosodyMetrics.prosodyGrade}</div></div>` : ''}
             </div>
 
             <div class="pronunciation-text">
@@ -1937,6 +1972,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                     <span class="legend-item"><span class="word-skipped">Gray</span> = Skipped</span>
                     <span class="legend-item"><span class="word-misread">Orange</span> = Misread</span>
                     <span class="legend-item"><span class="word-substituted">Red</span> = Substituted</span>
+                    <span class="legend-item"><span class="word-hesitation">[...]</span> = Hesitation</span>
                 </div>
             </div>
             <div id="word-popup" class="word-popup hidden"></div>
@@ -1976,6 +2012,14 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                 popupContent = `<div class="popup-title">Substituted Word</div>
                     <div class="popup-row"><span class="popup-label">Expected:</span> <span class="popup-value">"${expected}"</span></div>
                     <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-substituted">"${spoken}"</span></div>`;
+            } else if (status === 'hesitation') {
+                const hesType = wordEl.dataset.type;
+                const hesWord = wordEl.dataset.word;
+                const typeLabel = hesType === 'filler' ? 'Filler Word' : 'Long Pause';
+                popupContent = `<div class="popup-title">Hesitation</div>
+                    <div class="popup-row"><span class="popup-label">Type:</span> <span class="popup-value">${typeLabel}</span></div>
+                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-hesitation">"${hesWord}"</span></div>
+                    <div class="popup-hint">Indicates uncertainty or pause in fluency</div>`;
             }
 
             wordPopup.innerHTML = popupContent;
@@ -3013,6 +3057,7 @@ styleSheet.textContent = `
     .stat-box { background: var(--color-paper); border-radius: var(--radius-md); padding: var(--space-md); text-align: center; min-width: 0; }
     .stat-box .stat-number { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--color-primary); white-space: nowrap; }
     .stat-box .stat-label { font-size: 0.7rem; color: var(--color-slate); text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat-box .stat-sublabel { font-size: 0.65rem; color: #8b5cf6; font-weight: 500; margin-top: 2px; }
     .stat-correct { border-left: 4px solid var(--color-success, #22c55e); }
     .stat-error { border-left: 4px solid var(--color-error, #ef4444); }
     .stat-accuracy { border-left: 4px solid var(--color-primary); }
@@ -3026,10 +3071,12 @@ styleSheet.textContent = `
     .word-skipped { color: #6c757d; background: rgba(108, 117, 125, 0.15); text-decoration: line-through; }
     .word-misread { color: #c2410c; background: rgba(249, 115, 22, 0.15); }
     .word-substituted { color: #dc2626; background: rgba(239, 68, 68, 0.15); }
+    .word-hesitation { color: #7c3aed; background: rgba(139, 92, 246, 0.15); font-style: italic; }
     .error-badge { font-size: 0.65rem; background: currentColor; color: white; padding: 1px 4px; border-radius: 3px; margin-left: 2px; vertical-align: super; }
     .word-skipped .error-badge { background: #6c757d; }
     .word-misread .error-badge { background: #f97316; }
     .word-substituted .error-badge { background: #ef4444; }
+    .word-hesitation .error-badge { background: #7c3aed; }
     .legend { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-md); font-size: 0.85rem; }
     .legend-item { display: flex; align-items: center; gap: 4px; }
     .error-breakdown { background: #fef3c7; padding: var(--space-lg); border-radius: var(--radius-md); }
@@ -3052,6 +3099,8 @@ styleSheet.textContent = `
     .popup-skipped { color: #6c757d; font-style: italic; }
     .popup-misread { color: #c2410c; }
     .popup-substituted { color: #dc3545; }
+    .popup-hesitation { color: #7c3aed; font-style: italic; }
+    .popup-hint { font-size: 0.75rem; color: #6b7280; margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px dashed #e5e7eb; font-style: italic; }
     .loading-analysis { text-align: center; padding: var(--space-3xl); }
     .loading-analysis .spinner { width: 40px; height: 40px; border: 3px solid var(--color-sand); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto var(--space-lg); }
     @keyframes spin { to { transform: rotate(360deg); } }
