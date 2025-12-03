@@ -803,22 +803,55 @@ if (backToCaptureBtn) {
 }
 
 // ============ AUTO-DETECT (FIX #3) ============
-if (redoAutodetectBtn) {
-    redoAutodetectBtn.addEventListener('click', async () => {
-        if (!state.audioBlob) {
-            alert('No audio recorded. Please record audio first.');
-            return;
-        }
-        const loadingOverlay = document.getElementById('highlight-loading-overlay');
-        loadingOverlay.style.display = 'flex';
+async function handleAutoDetectClick(e) {
+    debugLog('Auto-detect button clicked/tapped');
+
+    // Prevent double-firing from both touch and click
+    if (e.type === 'touchend') {
+        e.preventDefault();
+    }
+
+    if (!state.audioBlob) {
+        debugLog('No audio blob available');
+        alert('No audio recorded. Please record audio first.');
+        return;
+    }
+
+    debugLog('Starting auto-detect with audio blob size:', state.audioBlob.size);
+
+    const loadingOverlay = document.getElementById('highlight-loading-overlay');
+    loadingOverlay.style.display = 'flex';
+
+    try {
         await autoDetectSpokenWords();
-        loadingOverlay.style.display = 'none';
-    });
+    } catch (error) {
+        debugError('Auto-detect failed:', error);
+        alert('Auto-detect failed: ' + error.message);
+    }
+
+    loadingOverlay.style.display = 'none';
+}
+
+if (redoAutodetectBtn) {
+    debugLog('Auto-detect button found, attaching event listeners');
+    redoAutodetectBtn.addEventListener('click', handleAutoDetectClick);
+    redoAutodetectBtn.addEventListener('touchend', handleAutoDetectClick);
+} else {
+    debugError('Auto-detect button NOT found in DOM');
 }
 
 async function autoDetectSpokenWords() {
+    debugLog('autoDetectSpokenWords called');
+    debugLog('audioBlob:', !!state.audioBlob, state.audioBlob?.size);
+    debugLog('ocrData:', !!state.ocrData, state.ocrData?.words?.length);
+    debugLog('apiKey:', !!state.apiKey);
+
     if (!state.audioBlob || !state.ocrData || !state.ocrData.words.length || !state.apiKey) {
         debugLog('Cannot auto-detect: missing audio, OCR data, or API key');
+        alert('Cannot auto-detect: ' +
+            (!state.audioBlob ? 'No audio. ' : '') +
+            (!state.ocrData?.words?.length ? 'No OCR data. ' : '') +
+            (!state.apiKey ? 'No API key.' : ''));
         return;
     }
 
@@ -829,11 +862,16 @@ async function autoDetectSpokenWords() {
         updateLoadingStep(2);
         document.getElementById('highlight-loading-status').textContent = 'Transcribing audio...';
 
+        debugLog('Calling runSpeechToText...');
+
         // Run speech-to-text (get full word info for better matching)
         const spokenWordInfo = await runSpeechToText(true);
 
+        debugLog('Speech-to-text returned:', spokenWordInfo?.length, 'words');
+
         if (!spokenWordInfo || spokenWordInfo.length === 0) {
             debugLog('No speech detected');
+            alert('No speech detected in the audio recording.');
             return;
         }
 
@@ -860,10 +898,12 @@ async function autoDetectSpokenWords() {
             state.latestSpokenWords = spokenWordInfo;
         } else {
             debugLog('Could not match spoken words to OCR text');
+            alert('Could not match spoken words to the detected text. Try selecting words manually.');
         }
 
     } catch (error) {
         debugError('Auto-detect error:', error);
+        alert('Auto-detect error: ' + error.message);
     }
 }
 
