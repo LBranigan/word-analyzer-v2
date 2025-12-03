@@ -75,7 +75,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2024-12-03 18:32';
+const BUILD_TIMESTAMP = '2024-12-03 18:38';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2526,7 +2526,8 @@ function closeSidebar() {
 }
 
 if (mobileMenuBtn) {
-    mobileMenuBtn.addEventListener('click', () => {
+    mobileMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (sidebar.classList.contains('open')) {
             closeSidebar();
         } else {
@@ -2535,8 +2536,28 @@ if (mobileMenuBtn) {
     });
 }
 
-// Close sidebar when clicking overlay on mobile
-if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+// Close sidebar when tapping anywhere outside - works reliably on Android
+function handleOutsideClick(e) {
+    if (!sidebar.classList.contains('open')) return;
+
+    // Check if tap is outside sidebar and menu button
+    const isOutsideSidebar = !sidebar.contains(e.target);
+    const isOutsideMenuBtn = !mobileMenuBtn || !mobileMenuBtn.contains(e.target);
+
+    if (isOutsideSidebar && isOutsideMenuBtn) {
+        closeSidebar();
+    }
+}
+
+// Use both click and touchend for Android compatibility
+document.addEventListener('click', handleOutsideClick);
+document.addEventListener('touchend', handleOutsideClick);
+
+// Also keep overlay click as backup
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    sidebarOverlay.addEventListener('touchend', closeSidebar);
+}
 
 const newAssessmentSidebarBtn = document.getElementById('new-assessment-btn');
 if (newAssessmentSidebarBtn) {
