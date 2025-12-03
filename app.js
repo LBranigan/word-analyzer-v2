@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 12:51';
+const BUILD_TIMESTAMP = '2025-12-03 12:54';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2211,6 +2211,7 @@ const quickAddStudentBtn = document.getElementById('quick-add-student-btn');
 
 if (classOverviewBtn) {
     classOverviewBtn.addEventListener('click', async () => {
+        closeSidebar(); // Close sidebar on mobile
         await window.renderStudentsGridAsync();
         showSection('class-overview');
     });
@@ -2734,6 +2735,7 @@ if (sidebarOverlay) {
 const newAssessmentSidebarBtn = document.getElementById('new-assessment-btn');
 if (newAssessmentSidebarBtn) {
     newAssessmentSidebarBtn.addEventListener('click', () => {
+        closeSidebar(); // Close sidebar on mobile
         state.audioBlob = null;
         state.capturedImage = null;
         state.selectedWords.clear();
