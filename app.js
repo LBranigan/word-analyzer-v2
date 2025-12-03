@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 14:45';
+const BUILD_TIMESTAMP = '2025-12-03 14:52';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -510,7 +510,7 @@ function showCaptureSuccess() {
     successMsg.classList.add('show');
 
     // On mobile, scroll to the next button
-    if (window.innerWidth <= 768) {
+    if (window.innerWidth <= 768 && nextToHighlightBtn) {
         setTimeout(() => {
             nextToHighlightBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 300);
@@ -1978,7 +1978,6 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     });
 
     // Hide popup when clicking elsewhere (use capture to detect clicks before they bubble)
-    const resultsContainer = document.getElementById('results-container');
     resultsContainer.addEventListener('click', (e) => {
         // Only hide if clicking outside a word-clickable element
         if (!e.target.closest('.word-clickable') && wordPopup && !wordPopup.classList.contains('hidden')) {
