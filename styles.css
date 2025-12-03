@@ -1632,21 +1632,26 @@ a:hover { color: var(--color-primary-light); }
 
 /* Canvas Wrapper */
 .canvas-wrapper {
-    background: white;
+    background: var(--color-slate);
     border-radius: var(--radius-lg);
-    padding: var(--space-md);
+    padding: var(--space-xl);
     box-shadow: var(--shadow-md);
     margin-bottom: var(--space-xl);
     position: relative;
     min-height: 400px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
 }
 
 .canvas-wrapper canvas {
-    width: 100%;
+    max-width: 100%;
+    width: auto;
     height: auto;
     display: block;
     cursor: crosshair;
     border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Status Message */
@@ -2320,6 +2325,22 @@ a:hover { color: var(--color-primary-light); }
 
     .toolbar-hint {
         text-align: center;
+    }
+
+    /* Add scroll gutters on mobile for image section */
+    #image-section .section-container {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .canvas-wrapper {
+        margin-left: var(--space-xl);
+        margin-right: var(--space-xl);
+        border-radius: var(--radius-md);
+    }
+
+    .canvas-wrapper canvas {
+        max-width: calc(100vw - 6rem);
     }
 
     .profile-header-card {
