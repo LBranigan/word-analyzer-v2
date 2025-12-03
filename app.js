@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 12:39';
+const BUILD_TIMESTAMP = '2025-12-03 12:49';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2278,6 +2278,13 @@ window.showStudentProfileAsync = async function(studentId) {
     }, 100);
 
     showSection('student-profile');
+
+    // Scroll to top of page on mobile
+    window.scrollTo(0, 0);
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.scrollTop = 0;
+    const section = document.getElementById('student-profile-section');
+    if (section) section.scrollTop = 0;
 };
 
 // Render assessment history with action buttons
