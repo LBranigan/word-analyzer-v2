@@ -40,7 +40,7 @@
                     <p>Sign in to access your classroom</p>
                 </div>
 
-                <button id="google-sign-in-btn" class="btn-google">
+                <button type="button" id="google-sign-in-btn" class="btn-google">
                     <svg class="google-icon" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -99,25 +99,25 @@
                     <div class="spine-fill" id="spine-fill"></div>
                 </div>
                 <div class="progress-steps">
-                    <button class="progress-step completed" data-step="setup" id="step-setup">
+                    <button type="button" class="progress-step completed" data-step="setup" id="step-setup">
                         <span class="step-marker">
                             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         </span>
                         <span class="step-label">Setup</span>
                     </button>
-                    <button class="progress-step" data-step="audio" id="step-audio">
+                    <button type="button" class="progress-step" data-step="audio" id="step-audio">
                         <span class="step-marker">1</span>
                         <span class="step-label">Record</span>
                     </button>
-                    <button class="progress-step" data-step="capture" id="step-capture">
+                    <button type="button" class="progress-step" data-step="capture" id="step-capture">
                         <span class="step-marker">2</span>
                         <span class="step-label">Capture</span>
                     </button>
-                    <button class="progress-step" data-step="highlight" id="step-highlight">
+                    <button type="button" class="progress-step" data-step="highlight" id="step-highlight">
                         <span class="step-marker">3</span>
                         <span class="step-label">Highlight</span>
                     </button>
-                    <button class="progress-step" data-step="results" id="step-results">
+                    <button type="button" class="progress-step" data-step="results" id="step-results">
                         <span class="step-marker">4</span>
                         <span class="step-label">Results</span>
                     </button>
@@ -126,7 +126,7 @@
 
             <!-- Quick Actions -->
             <div class="sidebar-actions">
-                <button class="sidebar-btn" id="class-overview-btn" title="Class Overview">
+                <button type="button" class="sidebar-btn" id="class-overview-btn" title="Class Overview">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                         <circle cx="9" cy="7" r="4"/>
@@ -135,7 +135,7 @@
                     </svg>
                     <span>Students</span>
                 </button>
-                <button class="sidebar-btn" id="new-assessment-btn" title="New Assessment">
+                <button type="button" class="sidebar-btn" id="new-assessment-btn" title="New Assessment">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"/>
                         <line x1="12" y1="8" x2="12" y2="16"/>
@@ -147,7 +147,7 @@
 
             <!-- User Profile -->
             <div class="sidebar-user" id="user-profile">
-                <button class="user-trigger" id="user-menu-btn">
+                <button type="button" class="user-trigger" id="user-menu-btn">
                     <img id="user-photo" class="user-avatar" src="" alt="">
                     <div class="user-info">
                         <span id="user-name" class="user-name">Teacher</span>
@@ -158,11 +158,11 @@
                     </svg>
                 </button>
                 <div class="user-dropdown" id="user-dropdown">
-                    <button class="dropdown-item" id="api-settings-btn">
+                    <button type="button" class="dropdown-item" id="api-settings-btn">
                         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
                         API Settings
                     </button>
-                    <button class="dropdown-item danger" id="sign-out-btn">
+                    <button type="button" class="dropdown-item danger" id="sign-out-btn">
                         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
                         Sign Out
                     </button>
@@ -178,7 +178,7 @@
             <!-- Header Bar -->
             <header class="content-header">
                 <div class="header-left">
-                    <button class="mobile-menu-btn" id="mobile-menu-btn">
+                    <button type="button" class="mobile-menu-btn" id="mobile-menu-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="3" y1="12" x2="21" y2="12"/>
                             <line x1="3" y1="6" x2="21" y2="6"/>
@@ -260,7 +260,7 @@
                                             <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
                                         </button>
                                     </div>
-                                    <button class="btn btn-primary btn-lg" id="save-api-key-btn">
+                                    <button type="button" class="btn btn-primary btn-lg" id="save-api-key-btn">
                                         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                         Validate & Save
                                     </button>
@@ -303,7 +303,7 @@
                                 <select id="assessment-student-select" class="student-dropdown">
                                     <option value="">Choose a student...</option>
                                 </select>
-                                <button class="btn btn-outline" id="quick-add-student-btn">
+                                <button type="button" class="btn btn-outline" id="quick-add-student-btn">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                                     Add New
                                 </button>
@@ -319,7 +319,7 @@
                                     <div class="wave wave-2"></div>
                                     <div class="wave wave-3"></div>
                                 </div>
-                                <button class="record-btn" id="record-audio-btn">
+                                <button type="button" class="record-btn" id="record-audio-btn">
                                     <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                                         <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
@@ -336,7 +336,7 @@
                                         <div class="timer-bar" id="timer-bar"></div>
                                     </div>
                                 </div>
-                                <button class="stop-btn" id="stop-recording-btn">
+                                <button type="button" class="stop-btn" id="stop-recording-btn">
                                     <svg viewBox="0 0 24 24" fill="currentColor">
                                         <rect x="6" y="6" width="12" height="12" rx="2"/>
                                     </svg>
@@ -352,11 +352,11 @@
                                 </div>
                                 <audio id="audio-player-main" controls></audio>
                                 <div class="playback-actions">
-                                    <button class="btn btn-ghost" id="rerecord-audio-btn">
+                                    <button type="button" class="btn btn-ghost" id="rerecord-audio-btn">
                                         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
                                         Re-record
                                     </button>
-                                    <button class="btn btn-ghost" id="download-audio-btn">
+                                    <button type="button" class="btn btn-ghost" id="download-audio-btn">
                                         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                                         Download
                                     </button>
@@ -366,11 +366,11 @@
 
                         <!-- Navigation -->
                         <div class="page-nav">
-                            <button class="btn btn-ghost" id="skip-audio-btn">
+                            <button type="button" class="btn btn-ghost" id="skip-audio-btn">
                                 Skip Audio
                                 <span class="btn-hint">Word count only</span>
                             </button>
-                            <button class="btn btn-primary" id="next-to-capture-btn" disabled>
+                            <button type="button" class="btn btn-primary" id="next-to-capture-btn" disabled>
                                 Continue to Capture
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                             </button>
@@ -400,14 +400,14 @@
                                 </div>
                             </div>
                             <div class="camera-controls">
-                                <button class="capture-btn" id="capture-btn">
+                                <button type="button" class="capture-btn" id="capture-btn">
                                     <span class="capture-ring"></span>
                                     <svg viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/>
                                         <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
                                     </svg>
                                 </button>
-                                <button class="btn btn-outline upload-btn" id="upload-btn-camera">
+                                <button type="button" class="btn btn-outline upload-btn" id="upload-btn-camera">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
                                     Browse Files
                                 </button>
@@ -425,11 +425,11 @@
                         </div>
 
                         <div class="page-nav">
-                            <button class="btn btn-ghost" id="back-to-audio-btn">
+                            <button type="button" class="btn btn-ghost" id="back-to-audio-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
                                 Back to Recording
                             </button>
-                            <button class="btn btn-primary" id="next-to-highlight-btn" disabled>
+                            <button type="button" class="btn btn-primary" id="next-to-highlight-btn" disabled>
                                 Continue to Highlight
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                             </button>
@@ -472,21 +472,21 @@
                                 <span class="toolbar-hint">Click words to select/deselect. Drag to select multiple.</span>
                             </div>
                             <div class="toolbar-group">
-                                <button class="toolbar-btn" id="zoom-in-btn" title="Zoom In">
+                                <button type="button" class="toolbar-btn" id="zoom-in-btn" title="Zoom In">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M8 6a1 1 0 011 1v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0v-1H6a1 1 0 110-2h1V7a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                                 </button>
-                                <button class="toolbar-btn" id="zoom-out-btn" title="Zoom Out">
+                                <button type="button" class="toolbar-btn" id="zoom-out-btn" title="Zoom Out">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M5 8a1 1 0 011-1h4a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
                                 </button>
-                                <button class="toolbar-btn" id="zoom-reset-btn" title="Undo">
+                                <button type="button" class="toolbar-btn" id="zoom-reset-btn" title="Undo">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                                 </button>
                                 <div class="toolbar-divider"></div>
-                                <button class="toolbar-btn" id="reset-selection-btn" title="Clear Selection">
+                                <button type="button" class="toolbar-btn" id="reset-selection-btn" title="Clear Selection">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                                     Clear
                                 </button>
-                                <button class="toolbar-btn" id="redo-autodetect-btn" title="Auto-detect Again">
+                                <button type="button" class="toolbar-btn" id="redo-autodetect-btn" title="Auto-detect Again">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
                                     Auto-detect
                                 </button>
@@ -501,11 +501,11 @@
                         <input type="file" id="file-input-image" accept="image/*" style="display: none;">
 
                         <div class="page-nav">
-                            <button class="btn btn-ghost" id="back-to-capture-btn">
+                            <button type="button" class="btn btn-ghost" id="back-to-capture-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
                                 Back to Capture
                             </button>
-                            <button class="btn btn-primary btn-lg" id="analyze-audio-btn" disabled>
+                            <button type="button" class="btn btn-primary btn-lg" id="analyze-audio-btn" disabled>
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
                                 Analyze Reading
                             </button>
@@ -531,7 +531,7 @@
                                     <span><span id="historical-student-name"></span> - <span id="historical-assessment-date"></span></span>
                                 </div>
                             </div>
-                            <button class="btn btn-outline" id="back-to-profile-btn">Back to Profile</button>
+                            <button type="button" class="btn btn-outline" id="back-to-profile-btn">Back to Profile</button>
                         </div>
 
                         <div id="results-container" class="results-grid">
@@ -545,7 +545,7 @@
                                 <select id="student-select" class="student-dropdown">
                                     <option value="">Choose student...</option>
                                 </select>
-                                <button class="btn btn-primary" id="save-assessment-btn" disabled>
+                                <button type="button" class="btn btn-primary" id="save-assessment-btn" disabled>
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z"/></svg>
                                     Save Assessment
                                 </button>
@@ -554,11 +554,11 @@
                         </div>
 
                         <div class="page-nav">
-                            <button class="btn btn-ghost" id="back-to-edit-btn">
+                            <button type="button" class="btn btn-ghost" id="back-to-edit-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
                                 Edit Selection
                             </button>
-                            <button class="btn btn-primary" id="start-new-analysis-btn">
+                            <button type="button" class="btn btn-primary" id="start-new-analysis-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                                 New Assessment
                             </button>
@@ -576,11 +576,11 @@
                         </div>
 
                         <div class="class-toolbar">
-                            <button class="btn btn-ghost" id="back-from-class-btn">
+                            <button type="button" class="btn btn-ghost" id="back-from-class-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
                                 Back
                             </button>
-                            <button class="btn btn-primary" id="add-student-btn">
+                            <button type="button" class="btn btn-primary" id="add-student-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/></svg>
                                 Add Student
                             </button>
@@ -596,7 +596,7 @@
                 <section id="student-profile-section" class="page-section">
                     <div class="section-container">
                         <div class="profile-header-card">
-                            <button class="btn btn-ghost back-btn" id="back-to-class-btn">
+                            <button type="button" class="btn btn-ghost back-btn" id="back-to-class-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
                             </button>
                             <div class="profile-avatar" id="profile-avatar">J</div>
@@ -604,7 +604,7 @@
                                 <h1 id="student-profile-name">Student Name</h1>
                                 <p id="student-profile-subtitle">Assessment History</p>
                             </div>
-                            <button class="btn btn-danger" id="delete-student-btn">
+                            <button type="button" class="btn btn-danger" id="delete-student-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                                 Delete
                             </button>
@@ -641,7 +641,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Recording Settings</h2>
-                <button class="modal-close" id="cancel-recording-btn">
+                <button type="button" class="modal-close" id="cancel-recording-btn">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
             </div>
@@ -665,7 +665,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="start-recording-btn">
+                <button type="button" class="btn btn-primary" id="start-recording-btn">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
                     Start Recording
                 </button>
@@ -679,7 +679,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Add New Student</h2>
-                <button class="modal-close" id="cancel-add-student-btn">
+                <button type="button" class="modal-close" id="cancel-add-student-btn">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
             </div>
@@ -694,7 +694,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="confirm-add-student-btn">
+                <button type="button" class="btn btn-primary" id="confirm-add-student-btn">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                     Add Student
                 </button>

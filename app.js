@@ -27,6 +27,7 @@ const state = {
     audioSampleRate: 48000,
     audioChannelCount: 1,
     audioMimeType: null,
+    audioObjectUrl: null, // Track for cleanup
     currentStudentId: null,
     // Drawing state for drag selection
     isDrawing: false,
@@ -103,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 14:52';
+const BUILD_TIMESTAMP = '2025-12-03 15:15';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -369,8 +370,12 @@ if (startRecordingBtn) {
                     // Keep existing values as fallback
                 }
 
-                const audioUrl = URL.createObjectURL(state.audioBlob);
-                audioPlayer.src = audioUrl;
+                // Revoke old audio URL to prevent memory leak
+                if (state.audioObjectUrl) {
+                    URL.revokeObjectURL(state.audioObjectUrl);
+                }
+                state.audioObjectUrl = URL.createObjectURL(state.audioBlob);
+                audioPlayer.src = state.audioObjectUrl;
 
                 recordingVisual.style.display = 'none';
                 recordingActive.style.display = 'none';
@@ -440,6 +445,8 @@ if (downloadAudioBtn) {
             a.href = url;
             a.download = `recording-${Date.now()}.webm`;
             a.click();
+            // Revoke after brief delay to allow download to start
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
     });
 }
@@ -772,6 +779,9 @@ function performRedraw() {
 
 // ============ CANVAS INTERACTION (FIX #4: Drag to highlight) ============
 let listenersAttached = false;
+
+// Track popup dismiss handler to prevent accumulation
+let popupDismissHandler = null;
 
 function setupCanvasInteraction() {
     const canvas = selectionCanvas;
@@ -1977,14 +1987,18 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
         });
     });
 
-    // Hide popup when clicking elsewhere (use capture to detect clicks before they bubble)
-    resultsContainer.addEventListener('click', (e) => {
+    // Hide popup when clicking elsewhere - remove old handler first to prevent accumulation
+    if (popupDismissHandler) {
+        resultsContainer.removeEventListener('click', popupDismissHandler);
+    }
+    popupDismissHandler = (e) => {
         // Only hide if clicking outside a word-clickable element
         if (!e.target.closest('.word-clickable') && wordPopup && !wordPopup.classList.contains('hidden')) {
             wordPopup.classList.add('hidden');
             if (popupTimeout) clearTimeout(popupTimeout);
         }
-    });
+    };
+    resultsContainer.addEventListener('click', popupDismissHandler);
 }
 
 // ============ EXPORT WORDS ============
@@ -2147,6 +2161,8 @@ function downloadAnalysisAsHtml2Pdf() {
                 downloadLink.href = pdfUrl;
                 downloadLink.download = options.filename;
                 downloadLink.click();
+                // Revoke URL after delay to allow download/view to complete
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 5000);
                 if (printContainer.parentNode) document.body.removeChild(printContainer);
                 if (overlay.parentNode) document.body.removeChild(overlay);
                 if (pdfBtn) { pdfBtn.disabled = false; pdfBtn.innerHTML = originalBtnContent; }
@@ -2492,43 +2508,48 @@ function renderAssessmentHistory(student) {
 
 // View historical assessment details
 async function viewHistoricalAssessment(studentId, assessmentId) {
-    const student = await FirebaseDB.getStudent(studentId);
-    if (!student) { alert('Student not found'); return; }
+    try {
+        const student = await FirebaseDB.getStudent(studentId);
+        if (!student) { alert('Student not found'); return; }
 
-    const assessment = student.assessments.find(a => a.id === assessmentId);
-    if (!assessment) { alert('Assessment not found'); return; }
+        const assessment = student.assessments.find(a => a.id === assessmentId);
+        if (!assessment) { alert('Assessment not found'); return; }
 
-    if (!assessment.expectedWords || !assessment.aligned) {
-        alert('This assessment was created before detailed viewing was available. Only summary data is shown.');
-        return;
+        if (!assessment.expectedWords || !assessment.aligned) {
+            alert('This assessment was created before detailed viewing was available. Only summary data is shown.');
+            return;
+        }
+
+        // Load historical data into state
+        state.latestExpectedWords = assessment.expectedWords;
+        state.latestSpokenWords = assessment.spokenWords || [];
+        state.latestProsodyMetrics = assessment.prosodyMetrics || { wpm: assessment.wpm, prosodyScore: assessment.prosodyScore };
+        state.latestAnalysis = { aligned: assessment.aligned, errors: assessment.errors, correctCount: assessment.correctCount };
+        state.latestErrorPatterns = assessment.errorPatterns || null;
+        state.viewingHistoricalAssessment = true;
+        state.historicalAssessmentStudentId = studentId;
+
+        // Display the results
+        displayPronunciationResults(state.latestExpectedWords, state.latestSpokenWords, state.latestAnalysis, state.latestProsodyMetrics);
+
+        showSection('results');
+
+        // Show historical banner and hide save card
+        const historicalBanner = document.getElementById('historical-assessment-banner');
+        const saveCard = document.querySelector('.save-card');
+        const studentNameSpan = document.getElementById('historical-student-name');
+        const dateSpan = document.getElementById('historical-assessment-date');
+
+        if (historicalBanner) {
+            historicalBanner.style.display = 'flex';
+            if (studentNameSpan) studentNameSpan.textContent = student.name;
+            if (dateSpan) dateSpan.textContent = new Date(assessment.date).toLocaleDateString();
+        }
+        if (saveCard) saveCard.style.display = 'none';
+    } catch (error) {
+        debugError('Error viewing historical assessment:', error);
+        alert('Failed to load assessment. Please try again.');
     }
-
-    // Load historical data into state
-    state.latestExpectedWords = assessment.expectedWords;
-    state.latestSpokenWords = assessment.spokenWords || [];
-    state.latestProsodyMetrics = assessment.prosodyMetrics || { wpm: assessment.wpm, prosodyScore: assessment.prosodyScore };
-    state.latestAnalysis = { aligned: assessment.aligned, errors: assessment.errors, correctCount: assessment.correctCount };
-    state.latestErrorPatterns = assessment.errorPatterns || null;
-    state.viewingHistoricalAssessment = true;
-    state.historicalAssessmentStudentId = studentId;
-
-    // Display the results
-    displayPronunciationResults(state.latestExpectedWords, state.latestSpokenWords, state.latestAnalysis, state.latestProsodyMetrics);
-
-    showSection('results');
-
-    // Show historical banner and hide save card
-    const historicalBanner = document.getElementById('historical-assessment-banner');
-    const saveCard = document.querySelector('.save-card');
-    const studentNameSpan = document.getElementById('historical-student-name');
-    const dateSpan = document.getElementById('historical-assessment-date');
-
-    if (historicalBanner) {
-        historicalBanner.style.display = 'flex';
-        if (studentNameSpan) studentNameSpan.textContent = student.name;
-        if (dateSpan) dateSpan.textContent = new Date(assessment.date).toLocaleDateString();
-    }
-    if (saveCard) saveCard.style.display = 'none';
 }
 
 // Render progress chart
