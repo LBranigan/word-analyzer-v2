@@ -1632,26 +1632,20 @@ a:hover { color: var(--color-primary-light); }
 
 /* Canvas Wrapper */
 .canvas-wrapper {
-    background: var(--color-slate);
+    background: white;
     border-radius: var(--radius-lg);
-    padding: var(--space-xl);
+    padding: var(--space-md);
     box-shadow: var(--shadow-md);
     margin-bottom: var(--space-xl);
     position: relative;
     min-height: 400px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    overflow: auto;
 }
 
 .canvas-wrapper canvas {
-    max-width: 100%;
-    width: auto;
-    height: auto;
     display: block;
     cursor: crosshair;
     border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-lg);
 }
 
 /* Status Message */
@@ -2319,28 +2313,30 @@ a:hover { color: var(--color-primary-light); }
     }
 
     .highlight-toolbar {
-        flex-direction: column;
-        gap: var(--space-md);
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+        padding: var(--space-sm);
+    }
+
+    .highlight-toolbar .toolbar-group {
+        width: 100%;
+        justify-content: center;
     }
 
     .toolbar-hint {
         text-align: center;
+        font-size: 0.8rem;
     }
 
-    /* Add scroll gutters on mobile for image section */
+    /* Image section mobile fixes */
     #image-section .section-container {
-        padding-left: 0;
-        padding-right: 0;
+        padding-left: var(--space-sm);
+        padding-right: var(--space-sm);
     }
 
     .canvas-wrapper {
-        margin-left: var(--space-xl);
-        margin-right: var(--space-xl);
+        padding: var(--space-sm);
         border-radius: var(--radius-md);
-    }
-
-    .canvas-wrapper canvas {
-        max-width: calc(100vw - 6rem);
     }
 
     .profile-header-card {
