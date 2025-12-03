@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 13:03';
+const BUILD_TIMESTAMP = '2025-12-03 14:22';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -347,12 +347,27 @@ if (startRecordingBtn) {
                 if (e.data.size > 0) chunks.push(e.data);
             };
 
-            state.mediaRecorder.onstop = () => {
+            state.mediaRecorder.onstop = async () => {
                 // Use actual recorded mime type for blob
                 const blobType = state.audioMimeType !== 'default' ? state.audioMimeType : 'audio/webm';
                 state.audioBlob = new Blob(chunks, { type: blobType });
                 state.recordedAudioBlob = state.audioBlob;
                 debugLog('Audio blob created:', state.audioBlob.size, 'bytes, type:', blobType);
+
+                // Decode audio to get actual channel count and sample rate
+                // This is critical for iPad which often records stereo even when input is mono
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const arrayBuffer = await state.audioBlob.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    state.audioChannelCount = audioBuffer.numberOfChannels;
+                    state.audioSampleRate = audioBuffer.sampleRate;
+                    debugLog('Decoded audio metadata - channels:', state.audioChannelCount, 'sampleRate:', state.audioSampleRate);
+                    audioContext.close();
+                } catch (decodeError) {
+                    debugError('Could not decode audio for metadata:', decodeError);
+                    // Keep existing values as fallback
+                }
 
                 const audioUrl = URL.createObjectURL(state.audioBlob);
                 audioPlayer.src = audioUrl;
@@ -1311,39 +1326,32 @@ async function runSpeechToText(returnFullInfo = false) {
                 // Determine encoding based on actual recorded format
                 let encoding = 'ENCODING_UNSPECIFIED';
                 let sampleRate = state.audioSampleRate || 48000;
-                let isOpusFormat = false;
 
                 if (state.audioMimeType) {
                     if (state.audioMimeType.includes('opus')) {
                         encoding = 'WEBM_OPUS';
-                        isOpusFormat = true;
                     } else if (state.audioMimeType.includes('mp4') || state.audioMimeType.includes('aac')) {
                         encoding = 'ENCODING_UNSPECIFIED'; // Let API auto-detect for AAC
                         sampleRate = state.audioSampleRate || 44100;
                     } else if (state.audioMimeType.includes('ogg')) {
                         encoding = 'OGG_OPUS';
-                        isOpusFormat = true;
                     }
                 }
 
-                debugLog('Speech API config - encoding:', encoding, 'sampleRate:', sampleRate, 'isOpus:', isOpusFormat);
-                debugLog('Audio blob size:', state.audioBlob.size, 'bytes');
+                debugLog('Speech API config - encoding:', encoding, 'sampleRate:', sampleRate, 'channels:', state.audioChannelCount);
+                debugLog('Audio blob size:', state.audioBlob.size, 'bytes, mimeType:', state.audioMimeType);
 
-                // Build config - don't specify audioChannelCount for OPUS formats
-                // OPUS formats have channel info in the header, specifying it causes errors on iPad
+                // Build config with actual decoded audio metadata
+                // audioChannelCount is now accurate because we decode the audio after recording
                 const speechConfig = {
                     encoding: encoding,
                     sampleRateHertz: sampleRate,
                     languageCode: 'en-US',
                     enableWordTimeOffsets: true,
                     enableAutomaticPunctuation: true,
-                    enableWordConfidence: true
+                    enableWordConfidence: true,
+                    audioChannelCount: state.audioChannelCount || 1
                 };
-
-                // Only add audioChannelCount for non-OPUS formats
-                if (!isOpusFormat) {
-                    speechConfig.audioChannelCount = state.audioChannelCount || 1;
-                }
 
                 const response = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${state.apiKey}`, {
                     method: 'POST',
