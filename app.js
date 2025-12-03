@@ -788,51 +788,340 @@ async function autoDetectSpokenWords() {
         updateLoadingStep(2);
         document.getElementById('highlight-loading-status').textContent = 'Transcribing audio...';
 
-        // Run speech-to-text
-        const spokenWords = await runSpeechToText();
+        // Run speech-to-text (get full word info for better matching)
+        const spokenWordInfo = await runSpeechToText(true);
 
-        if (!spokenWords || spokenWords.length === 0) {
+        if (!spokenWordInfo || spokenWordInfo.length === 0) {
             debugLog('No speech detected');
             return;
         }
 
-        debugLog('Spoken words:', spokenWords);
+        debugLog('Spoken words:', spokenWordInfo.map(w => w.word));
 
         updateLoadingStep(3);
         document.getElementById('highlight-loading-status').textContent = 'Matching words...';
 
-        // Match spoken words to OCR words
-        const ocrWords = state.ocrData.words.map(w => normalizeWord(w.text));
-        const cleanSpoken = spokenWords.filter(w => !isFillerWord(w)).map(w => normalizeWord(w));
+        // Get OCR words
+        const ocrWords = state.ocrData.words.map(w => w.text);
 
-        debugLog('Clean spoken:', cleanSpoken);
-        debugLog('OCR words:', ocrWords);
+        // Use sophisticated matching algorithm
+        const matchResult = findSpokenRangeInOCR(spokenWordInfo, ocrWords);
 
-        // Find first and last matching word
-        let firstMatch = -1;
-        let lastMatch = -1;
-
-        for (let s = 0; s < cleanSpoken.length; s++) {
-            for (let o = 0; o < ocrWords.length; o++) {
-                if (wordsMatch(cleanSpoken[s], ocrWords[o])) {
-                    if (firstMatch === -1 || o < firstMatch) firstMatch = o;
-                    if (o > lastMatch) lastMatch = o;
-                }
-            }
-        }
-
-        if (firstMatch !== -1 && lastMatch !== -1) {
-            debugLog('Auto-selecting from', firstMatch, 'to', lastMatch);
-            for (let i = firstMatch; i <= lastMatch; i++) {
+        if (matchResult.firstIndex !== -1 && matchResult.lastIndex !== -1) {
+            debugLog('Auto-selecting from', matchResult.firstIndex, 'to', matchResult.lastIndex);
+            for (let i = matchResult.firstIndex; i <= matchResult.lastIndex; i++) {
                 state.selectedWords.add(i);
             }
             updateWordCount();
             redrawCanvas();
+
+            // Store spoken words for later analysis
+            state.latestSpokenWords = spokenWordInfo;
+        } else {
+            debugLog('Could not match spoken words to OCR text');
         }
 
     } catch (error) {
         debugError('Auto-detect error:', error);
     }
+}
+
+// ============ SOPHISTICATED AUTO-DETECT MATCHING ============
+
+function findSpokenRangeInOCR(spokenWords, ocrWords) {
+    // Normalize spoken words (remove filler words, clean up)
+    const cleanSpoken = spokenWords
+        .filter(w => w && w.word && !isFillerWord(w.word))
+        .map(w => normalizeWordForMatching(w.word))
+        .filter(w => w.length > 0);
+
+    // Normalize OCR words
+    const cleanOCR = ocrWords.map(w => normalizeWordForMatching(w));
+
+    debugLog('Clean spoken:', cleanSpoken);
+    debugLog('Clean OCR:', cleanOCR);
+
+    if (cleanSpoken.length === 0 || cleanOCR.length === 0) {
+        return { firstIndex: -1, lastIndex: -1, matchedCount: 0 };
+    }
+
+    // Build similarity matrix and find best alignment
+    const similarityMatrix = buildSimilarityMatrix(cleanSpoken, cleanOCR);
+    const alignment = findBestAlignment(cleanSpoken, cleanOCR, similarityMatrix);
+
+    if (alignment.firstOCRIndex === -1 || alignment.lastOCRIndex === -1) {
+        // Fallback: Try anchor-based matching
+        return findRangeByAnchors(cleanSpoken, cleanOCR);
+    }
+
+    return {
+        firstIndex: alignment.firstOCRIndex,
+        lastIndex: alignment.lastOCRIndex,
+        matchedCount: alignment.matchedCount
+    };
+}
+
+function buildSimilarityMatrix(spoken, ocr) {
+    const matrix = [];
+    for (let s = 0; s < spoken.length; s++) {
+        matrix[s] = [];
+        for (let o = 0; o < ocr.length; o++) {
+            matrix[s][o] = calculateWordSimilarity(spoken[s], ocr[o]);
+        }
+    }
+    return matrix;
+}
+
+function calculateWordSimilarity(word1, word2) {
+    if (!word1 || !word2) return 0;
+    if (word1 === word2) return 1.0;
+
+    // Check phonetic similarity
+    const phonetic1 = getPhoneticCode(word1);
+    const phonetic2 = getPhoneticCode(word2);
+    if (phonetic1 && phonetic2 && phonetic1 === phonetic2) {
+        return 0.95;
+    }
+
+    // Check for common OCR/STT confusions
+    if (areCommonConfusions(word1, word2)) {
+        return 0.9;
+    }
+
+    // Check prefix matching
+    const minLen = Math.min(word1.length, word2.length);
+    const maxLen = Math.max(word1.length, word2.length);
+
+    if (minLen >= 3) {
+        if (word1.startsWith(word2) || word2.startsWith(word1)) {
+            return 0.7 + (0.25 * minLen / maxLen);
+        }
+        const prefixLen = Math.min(4, minLen);
+        if (word1.substring(0, prefixLen) === word2.substring(0, prefixLen)) {
+            return 0.6 + (0.3 * minLen / maxLen);
+        }
+    }
+
+    // Levenshtein-based similarity
+    const distance = levenshteinDistance(word1, word2);
+    const similarity = 1 - (distance / maxLen);
+    const lengthBonus = Math.min(0.1, maxLen * 0.01);
+
+    return Math.min(1.0, similarity + lengthBonus);
+}
+
+function getPhoneticCode(word) {
+    if (!word || word.length < 2) return null;
+
+    let code = word[0].toUpperCase();
+    const phonemeMap = {
+        'b': '1', 'f': '1', 'p': '1', 'v': '1',
+        'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+        'd': '3', 't': '3', 'l': '4', 'm': '5', 'n': '5', 'r': '6'
+    };
+
+    let lastCode = '';
+    for (let i = 1; i < word.length && code.length < 4; i++) {
+        const char = word[i].toLowerCase();
+        const phoneCode = phonemeMap[char];
+        if (phoneCode && phoneCode !== lastCode) {
+            code += phoneCode;
+            lastCode = phoneCode;
+        } else if (!phonemeMap[char]) {
+            lastCode = '';
+        }
+    }
+
+    while (code.length < 4) code += '0';
+    return code;
+}
+
+function areCommonConfusions(word1, word2) {
+    const ocrConfusions = [
+        ['0', 'o'], ['1', 'l'], ['1', 'i'], ['5', 's'],
+        ['8', 'b'], ['rn', 'm'], ['cl', 'd'], ['vv', 'w']
+    ];
+
+    let normalized1 = word1.toLowerCase();
+    let normalized2 = word2.toLowerCase();
+
+    for (const [from, to] of ocrConfusions) {
+        const alt1a = normalized1.replace(new RegExp(from, 'g'), to);
+        const alt1b = normalized1.replace(new RegExp(to, 'g'), from);
+        const alt2a = normalized2.replace(new RegExp(from, 'g'), to);
+        const alt2b = normalized2.replace(new RegExp(to, 'g'), from);
+
+        if (alt1a === normalized2 || alt1b === normalized2 ||
+            normalized1 === alt2a || normalized1 === alt2b) {
+            return true;
+        }
+    }
+
+    const wordConfusions = [
+        ['the', 'a'], ['the', 'uh'], ['and', 'an'], ['to', 'too', 'two'],
+        ['there', 'their', 'theyre'], ['its', 'its'], ['your', 'youre'],
+        ['were', 'where', 'were'], ['then', 'than']
+    ];
+
+    for (const group of wordConfusions) {
+        if (group.includes(normalized1) && group.includes(normalized2)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function findBestAlignment(spoken, ocr, similarityMatrix) {
+    const m = spoken.length;
+    const n = ocr.length;
+
+    const MATCH_THRESHOLD = 0.55;
+    const SKIP_PENALTY = 0.3;
+    const GAP_PENALTY = 0.4;
+
+    let bestScore = 0;
+    let bestEndOCR = -1;
+    let bestStartOCR = -1;
+    let bestMatchCount = 0;
+
+    for (let startOCR = 0; startOCR < n; startOCR++) {
+        const dp = new Array(m + 1).fill(null).map(() => ({
+            score: 0, matchCount: 0, lastOCR: startOCR - 1, firstOCR: -1
+        }));
+
+        for (let s = 0; s < m; s++) {
+            const prevState = dp[s];
+
+            for (let o = prevState.lastOCR + 1; o < n; o++) {
+                const sim = similarityMatrix[s][o];
+
+                if (sim >= MATCH_THRESHOLD) {
+                    const skippedOCR = o - prevState.lastOCR - 1;
+                    const skipPenalty = skippedOCR * SKIP_PENALTY;
+                    const newScore = prevState.score + sim - skipPenalty;
+
+                    if (newScore > dp[s + 1].score) {
+                        dp[s + 1] = {
+                            score: newScore,
+                            matchCount: prevState.matchCount + 1,
+                            lastOCR: o,
+                            firstOCR: prevState.firstOCR === -1 ? o : prevState.firstOCR
+                        };
+                    }
+                }
+            }
+
+            if (dp[s].score - GAP_PENALTY > dp[s + 1].score) {
+                dp[s + 1] = {
+                    score: dp[s].score - GAP_PENALTY,
+                    matchCount: dp[s].matchCount,
+                    lastOCR: dp[s].lastOCR,
+                    firstOCR: dp[s].firstOCR
+                };
+            }
+        }
+
+        const finalState = dp[m];
+        if (finalState.matchCount >= 2 && finalState.score > bestScore) {
+            bestScore = finalState.score;
+            bestEndOCR = finalState.lastOCR;
+            bestStartOCR = finalState.firstOCR;
+            bestMatchCount = finalState.matchCount;
+        }
+    }
+
+    debugLog('DP alignment:', { bestStartOCR, bestEndOCR, bestScore, bestMatchCount });
+
+    return {
+        firstOCRIndex: bestStartOCR,
+        lastOCRIndex: bestEndOCR,
+        matchedCount: bestMatchCount,
+        score: bestScore
+    };
+}
+
+function findRangeByAnchors(spoken, ocr) {
+    debugLog('Using anchor-based fallback...');
+
+    const ocrWordCounts = {};
+    ocr.forEach(w => { ocrWordCounts[w] = (ocrWordCounts[w] || 0) + 1; });
+
+    const anchors = [];
+
+    for (let s = 0; s < spoken.length; s++) {
+        const spokenWord = spoken[s];
+        if (spokenWord.length < 4) continue;
+
+        for (let o = 0; o < ocr.length; o++) {
+            const ocrWord = ocr[o];
+            if (ocrWordCounts[ocrWord] > 2) continue;
+
+            const sim = calculateWordSimilarity(spokenWord, ocrWord);
+            if (sim >= 0.6) {
+                anchors.push({ spokenIdx: s, ocrIdx: o, similarity: sim });
+            }
+        }
+    }
+
+    if (anchors.length === 0) {
+        debugLog('No anchors found');
+        return { firstIndex: -1, lastIndex: -1, matchedCount: 0 };
+    }
+
+    anchors.sort((a, b) => a.spokenIdx - b.spokenIdx);
+
+    let bestStart = anchors[0].ocrIdx;
+    let bestEnd = anchors[0].ocrIdx;
+    let currentStart = anchors[0].ocrIdx;
+    let currentEnd = anchors[0].ocrIdx;
+    let matchCount = 1;
+    let bestMatchCount = 1;
+
+    for (let i = 1; i < anchors.length; i++) {
+        if (anchors[i].ocrIdx > currentEnd) {
+            currentEnd = anchors[i].ocrIdx;
+            matchCount++;
+            if (matchCount > bestMatchCount) {
+                bestMatchCount = matchCount;
+                bestStart = currentStart;
+                bestEnd = currentEnd;
+            }
+        } else if (anchors[i].ocrIdx < currentStart) {
+            currentStart = anchors[i].ocrIdx;
+            currentEnd = anchors[i].ocrIdx;
+            matchCount = 1;
+        }
+    }
+
+    debugLog('Anchor result:', { bestStart, bestEnd, bestMatchCount });
+
+    return { firstIndex: bestStart, lastIndex: bestEnd, matchedCount: bestMatchCount };
+}
+
+function normalizeWordForMatching(word) {
+    if (!word || typeof word !== 'string') return '';
+
+    let normalized = word.toLowerCase().replace(/[^\w]/g, '');
+
+    normalized = normalized
+        .replace(/n't$/, 'not')
+        .replace(/'re$/, 'are')
+        .replace(/'ve$/, 'have')
+        .replace(/'ll$/, 'will')
+        .replace(/'d$/, 'would')
+        .replace(/'s$/, '');
+
+    const numberWords = {
+        '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+        '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+        '10': 'ten', '11': 'eleven', '12': 'twelve'
+    };
+    if (numberWords[normalized]) {
+        normalized = numberWords[normalized];
+    }
+
+    return normalized;
 }
 
 async function runSpeechToText(returnFullInfo = false) {
