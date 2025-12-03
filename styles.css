@@ -371,6 +371,11 @@ a:hover { color: var(--color-primary-light); }
     transition: opacity var(--transition-base);
 }
 
+.sidebar-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 @media (max-width: 1024px) {
     .sidebar-overlay {
         display: block;
@@ -2266,11 +2271,6 @@ a:hover { color: var(--color-primary-light); }
 
     .sidebar.open {
         transform: translateX(0);
-    }
-
-    .sidebar.open + .sidebar-overlay {
-        opacity: 1;
-        pointer-events: auto;
     }
 
     .main-content {

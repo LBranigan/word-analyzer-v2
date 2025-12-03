@@ -75,7 +75,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2024-12-03 18:18';
+const BUILD_TIMESTAMP = '2024-12-03 18:25';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2515,10 +2515,28 @@ const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 const sidebar = document.querySelector('.sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
 
-if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+function openSidebar() {
+    sidebar.classList.add('open');
+    if (sidebarOverlay) sidebarOverlay.classList.add('active');
+}
+
+function closeSidebar() {
+    sidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+}
+
+if (mobileMenuBtn) {
+    mobileMenuBtn.addEventListener('click', () => {
+        if (sidebar.classList.contains('open')) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    });
+}
 
 // Close sidebar when clicking overlay on mobile
-if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => sidebar.classList.remove('open'));
+if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
 const newAssessmentSidebarBtn = document.getElementById('new-assessment-btn');
 if (newAssessmentSidebarBtn) {
