@@ -75,7 +75,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2024-12-03 19:15';
+const BUILD_TIMESTAMP = '2025-12-03 11:39';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -359,6 +359,7 @@ if (nextToCaptureBtn) {
 // ============ CAMERA/CAPTURE ============
 const camera = document.getElementById('camera');
 const cameraCanvas = document.getElementById('camera-canvas');
+const cameraPreview = document.getElementById('camera-preview');
 const captureBtn = document.getElementById('capture-btn');
 const uploadBtn = document.getElementById('upload-btn-camera');
 const fileInputCamera = document.getElementById('file-input-camera');
@@ -369,6 +370,7 @@ async function initCamera() {
     // Reset preview state
     camera.style.display = 'block';
     cameraCanvas.style.display = 'none';
+    if (cameraPreview) cameraPreview.style.display = 'none';
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -391,9 +393,13 @@ if (captureBtn) {
         state.capturedImage = cameraCanvas.toDataURL('image/jpeg', 1.0);
         nextToHighlightBtn.disabled = false;
 
-        // FIX #1: Show captured image preview instead of black screen
+        // Show captured image preview using img element (preserves letterboxing)
         camera.style.display = 'none';
-        cameraCanvas.style.display = 'block';
+        cameraCanvas.style.display = 'none';
+        if (cameraPreview) {
+            cameraPreview.src = state.capturedImage;
+            cameraPreview.style.display = 'block';
+        }
 
         // Stop camera
         if (state.mediaStream) {
@@ -415,17 +421,13 @@ if (fileInputCamera) {
                 state.capturedImage = event.target.result;
                 nextToHighlightBtn.disabled = false;
 
-                // Show preview of uploaded image
-                const img = new Image();
-                img.onload = () => {
-                    const ctx = cameraCanvas.getContext('2d');
-                    cameraCanvas.width = img.width;
-                    cameraCanvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    camera.style.display = 'none';
-                    cameraCanvas.style.display = 'block';
-                };
-                img.src = event.target.result;
+                // Show preview of uploaded image using img element (preserves letterboxing)
+                camera.style.display = 'none';
+                cameraCanvas.style.display = 'none';
+                if (cameraPreview) {
+                    cameraPreview.src = state.capturedImage;
+                    cameraPreview.style.display = 'block';
+                }
             };
             reader.readAsDataURL(file);
         }

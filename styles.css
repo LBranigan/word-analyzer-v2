@@ -1375,7 +1375,8 @@ a:hover { color: var(--color-primary-light); }
 }
 
 .camera-viewport video,
-.camera-viewport canvas {
+.camera-viewport canvas,
+.camera-viewport img {
     position: absolute;
     top: 0;
     left: 0;
