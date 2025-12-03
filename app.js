@@ -75,7 +75,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2024-12-03 19:01';
+const BUILD_TIMESTAMP = '2024-12-03 19:08';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2252,10 +2252,10 @@ function renderProgressChart(student) {
         ctx.stroke();
     }
 
-    // Data
+    // Data - using 0-200 scale to fit both accuracy (0-100) and WPM (typically 0-200)
+    const maxScale = 200;
     const accuracyData = sortedAssessments.map(a => a.accuracy || 0);
-    const wpmData = sortedAssessments.map(a => Math.min((a.wpm || 0) / 2, 100));
-    const prosodyData = sortedAssessments.map(a => (a.prosodyScore || 0) * 25);
+    const wpmData = sortedAssessments.map(a => Math.min(a.wpm || 0, maxScale));
 
     // Axes
     ctx.strokeStyle = '#374151';
@@ -2266,14 +2266,14 @@ function renderProgressChart(student) {
     ctx.lineTo(padding + chartWidth, padding + chartHeight);
     ctx.stroke();
 
-    // Y labels
+    // Y labels (0-200 scale)
     ctx.fillStyle = '#374151';
     ctx.font = '24px Arial';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = 0; i <= 10; i++) {
         const y = padding + (chartHeight / 10) * i;
-        ctx.fillText(100 - i * 10, padding - 10, y);
+        ctx.fillText(maxScale - i * (maxScale / 10), padding - 10, y);
     }
 
     // X labels
@@ -2293,7 +2293,7 @@ function renderProgressChart(student) {
         ctx.beginPath();
         data.forEach((value, i) => {
             const x = padding + (chartWidth / (count - 1 || 1)) * i;
-            const y = padding + chartHeight - (value / 100) * chartHeight;
+            const y = padding + chartHeight - (value / maxScale) * chartHeight;
             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         });
         ctx.stroke();
@@ -2301,7 +2301,7 @@ function renderProgressChart(student) {
         ctx.fillStyle = color;
         data.forEach((value, i) => {
             const x = padding + (chartWidth / (count - 1 || 1)) * i;
-            const y = padding + chartHeight - (value / 100) * chartHeight;
+            const y = padding + chartHeight - (value / maxScale) * chartHeight;
             ctx.beginPath();
             ctx.arc(x, y, 6, 0, Math.PI * 2);
             ctx.fill();
@@ -2310,7 +2310,6 @@ function renderProgressChart(student) {
 
     drawLine(accuracyData, '#10b981');
     drawLine(wpmData, '#3b82f6');
-    drawLine(prosodyData, '#8b5cf6');
 
     // Title
     ctx.font = 'bold 28px Arial';
@@ -2319,16 +2318,16 @@ function renderProgressChart(student) {
     ctx.fillText('Progress Over Time', padding, 35);
 
     // Legend
-    const legendItems = [{ label: 'Accuracy', color: '#10b981' }, { label: 'WPM (÷2)', color: '#3b82f6' }, { label: 'Prosody (×25)', color: '#8b5cf6' }];
+    const legendItems = [{ label: 'Accuracy %', color: '#10b981' }, { label: 'WPM', color: '#3b82f6' }];
     ctx.font = 'bold 18px Arial';
-    let lx = width - padding - 350;
+    let lx = width - padding - 220;
     legendItems.forEach(item => {
         ctx.fillStyle = item.color;
         ctx.fillRect(lx, 28, 14, 14);
         ctx.fillStyle = '#374151';
         ctx.textAlign = 'left';
         ctx.fillText(item.label, lx + 20, 35);
-        lx += 120;
+        lx += 110;
     });
 }
 
