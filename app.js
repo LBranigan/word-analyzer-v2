@@ -74,6 +74,11 @@ const studentProfileSection = document.getElementById('student-profile-section')
 const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
+// ============ BUILD TIMESTAMP ============
+const BUILD_TIMESTAMP = '2024-12-03 17:45';
+const timestampEl = document.getElementById('build-timestamp');
+if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
+
 // ============ INITIALIZATION ============
 window.addEventListener('userAuthenticated', async (event) => {
     debugLog('User authenticated, initializing app...');
