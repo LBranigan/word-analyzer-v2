@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 14:28';
+const BUILD_TIMESTAMP = '2025-12-03 14:38';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -1804,16 +1804,32 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     const totalErrors = (analysis.errors?.skippedWords?.length || 0) + (analysis.errors?.misreadWords?.length || 0) + (analysis.errors?.substitutedWords?.length || 0);
     const accuracy = Math.round((correctCount / totalWords) * 100); // Integer, no decimal
 
-    // Build word-by-word display
+    // Build word-by-word display with clickable error words
     let wordsHtml = '';
     analysis.aligned.forEach(item => {
         const safeWord = escapeHtml(item.expected);
+        const safeSpoken = item.spoken ? escapeHtml(item.spoken) : '';
         let className = 'word-correct';
         let errorLabel = '';
-        if (item.status === 'skipped') { className = 'word-skipped'; errorLabel = '<span class="error-badge">skipped</span>'; }
-        else if (item.status === 'misread') { className = 'word-misread'; errorLabel = '<span class="error-badge">misread</span>'; }
-        else if (item.status === 'substituted') { className = 'word-substituted'; errorLabel = '<span class="error-badge">substituted</span>'; }
-        wordsHtml += `<span class="${className}">${safeWord}${errorLabel}</span> `;
+        let dataAttrs = '';
+
+        if (item.status === 'skipped') {
+            className = 'word-skipped word-clickable';
+            errorLabel = '<span class="error-badge">skipped</span>';
+            dataAttrs = `data-status="skipped" data-expected="${safeWord}"`;
+        }
+        else if (item.status === 'misread') {
+            className = 'word-misread word-clickable';
+            errorLabel = '<span class="error-badge">misread</span>';
+            dataAttrs = `data-status="misread" data-expected="${safeWord}" data-spoken="${safeSpoken}"`;
+        }
+        else if (item.status === 'substituted') {
+            className = 'word-substituted word-clickable';
+            errorLabel = '<span class="error-badge">substituted</span>';
+            dataAttrs = `data-status="substituted" data-expected="${safeWord}" data-spoken="${safeSpoken}"`;
+        }
+
+        wordsHtml += `<span class="${className}" ${dataAttrs}>${safeWord}${errorLabel}</span> `;
     });
 
     // Build error breakdown
@@ -1851,7 +1867,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
             </div>
 
             <div class="pronunciation-text">
-                <h4>Text with Error Highlighting:</h4>
+                <h4>Text with Error Highlighting: <span class="tap-hint">(tap errors for details)</span></h4>
                 <div class="analyzed-text">${wordsHtml}</div>
                 <div class="legend">
                     <span class="legend-item"><span class="word-correct">Green</span> = Correct</span>
@@ -1860,6 +1876,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                     <span class="legend-item"><span class="word-substituted">Red</span> = Substituted</span>
                 </div>
             </div>
+            <div id="word-popup" class="word-popup hidden"></div>
 
             ${errorBreakdownHtml ? `<div class="error-breakdown"><h4>Error Breakdown:</h4>${errorBreakdownHtml}</div>` : ''}
         </div>
@@ -1870,6 +1887,71 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     document.getElementById('generate-video-btn')?.addEventListener('click', generateTranscriptVideo);
     document.getElementById('view-patterns-btn')?.addEventListener('click', viewDetailedPatterns);
     document.getElementById('export-words-btn')?.addEventListener('click', exportSelectedWords);
+
+    // Add click handlers for error words to show popup
+    const wordPopup = document.getElementById('word-popup');
+    let popupTimeout = null;
+
+    document.querySelectorAll('.word-clickable').forEach(wordEl => {
+        wordEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            const status = wordEl.dataset.status;
+            const expected = wordEl.dataset.expected;
+            const spoken = wordEl.dataset.spoken || '';
+
+            let popupContent = '';
+            if (status === 'skipped') {
+                popupContent = `<div class="popup-title">Skipped Word</div>
+                    <div class="popup-row"><span class="popup-label">Expected:</span> <span class="popup-value">"${expected}"</span></div>
+                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-skipped">(not read)</span></div>`;
+            } else if (status === 'misread') {
+                popupContent = `<div class="popup-title">Misread Word</div>
+                    <div class="popup-row"><span class="popup-label">Expected:</span> <span class="popup-value">"${expected}"</span></div>
+                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-misread">"${spoken}"</span></div>`;
+            } else if (status === 'substituted') {
+                popupContent = `<div class="popup-title">Substituted Word</div>
+                    <div class="popup-row"><span class="popup-label">Expected:</span> <span class="popup-value">"${expected}"</span></div>
+                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-substituted">"${spoken}"</span></div>`;
+            }
+
+            wordPopup.innerHTML = popupContent;
+            wordPopup.classList.remove('hidden');
+
+            // Position popup near the clicked word
+            const rect = wordEl.getBoundingClientRect();
+            const popupRect = wordPopup.getBoundingClientRect();
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+
+            // Position above the word, centered
+            let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
+            let top = rect.top + scrollY - popupRect.height - 10;
+
+            // Keep popup in viewport
+            if (left < 10) left = 10;
+            if (left + popupRect.width > window.innerWidth - 10) left = window.innerWidth - popupRect.width - 10;
+            if (top < scrollY + 10) top = rect.bottom + scrollY + 10; // Show below if not enough space above
+
+            wordPopup.style.left = `${left}px`;
+            wordPopup.style.top = `${top}px`;
+
+            // Clear existing timeout and set new one
+            if (popupTimeout) clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+                wordPopup.classList.add('hidden');
+            }, 5000);
+        });
+    });
+
+    // Hide popup when clicking elsewhere (use capture to detect clicks before they bubble)
+    const resultsContainer = document.getElementById('results-container');
+    resultsContainer.addEventListener('click', (e) => {
+        // Only hide if clicking outside a word-clickable element
+        if (!e.target.closest('.word-clickable') && wordPopup && !wordPopup.classList.contains('hidden')) {
+            wordPopup.classList.add('hidden');
+            if (popupTimeout) clearTimeout(popupTimeout);
+        }
+    });
 }
 
 // ============ EXPORT WORDS ============
@@ -2880,6 +2962,23 @@ styleSheet.textContent = `
     .error-breakdown { background: #fef3c7; padding: var(--space-lg); border-radius: var(--radius-md); }
     .error-breakdown h4 { margin-bottom: var(--space-md); color: #92400e; }
     .error-category { background: white; padding: var(--space-md); border-radius: var(--radius-sm); margin-bottom: var(--space-sm); border-left: 3px solid #f59e0b; }
+
+    /* Clickable error words */
+    .word-clickable { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+    .word-clickable:hover, .word-clickable:active { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .tap-hint { font-size: 0.75rem; color: var(--color-slate); font-weight: normal; }
+
+    /* Word error popup */
+    .word-popup { position: absolute; z-index: 1000; background: white; border-radius: var(--radius-md); box-shadow: 0 4px 20px rgba(0,0,0,0.25); padding: var(--space-md); min-width: 200px; max-width: 280px; animation: popupFadeIn 0.2s ease-out; }
+    .word-popup.hidden { display: none; }
+    @keyframes popupFadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .popup-title { font-weight: 600; font-size: 0.9rem; color: var(--color-slate); margin-bottom: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 1px solid #e5e7eb; }
+    .popup-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .popup-label { font-size: 0.8rem; color: #6b7280; }
+    .popup-value { font-size: 0.95rem; font-weight: 500; }
+    .popup-skipped { color: #6c757d; font-style: italic; }
+    .popup-misread { color: #c2410c; }
+    .popup-substituted { color: #dc3545; }
     .loading-analysis { text-align: center; padding: var(--space-3xl); }
     .loading-analysis .spinner { width: 40px; height: 40px; border: 3px solid var(--color-sand); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto var(--space-lg); }
     @keyframes spin { to { transform: rotate(360deg); } }
