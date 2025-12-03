@@ -2012,15 +2012,15 @@ a:hover { color: var(--color-primary-light); }
 
 /* Macro Insights */
 .macro-insights {
-    background: linear-gradient(135deg, var(--color-accent-light) 0%, #f0fdf4 100%);
+    background: var(--color-paper);
     border-radius: var(--radius-md);
     padding: var(--space-lg);
     margin-bottom: var(--space-xl);
-    border-left: 4px solid var(--color-accent);
+    border-left: 4px solid var(--color-primary);
 }
 
 .macro-insights h4 {
-    color: var(--color-accent);
+    color: var(--color-primary);
     margin-bottom: var(--space-md);
     font-size: 0.95rem;
     text-transform: uppercase;
@@ -2043,7 +2043,7 @@ a:hover { color: var(--color-primary-light); }
 
 .insights-list li::before {
     content: "→";
-    color: var(--color-accent);
+    color: var(--color-primary);
     font-weight: bold;
 }
 
