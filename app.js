@@ -23,6 +23,10 @@ const state = {
     mediaRecorder: null,
     recordingStartTime: null,
     recordingDuration: 60,
+    // Audio metadata for Speech API
+    audioSampleRate: 48000,
+    audioChannelCount: 1,
+    audioMimeType: null,
     currentStudentId: null,
     // Drawing state for drag selection
     isDrawing: false,
@@ -99,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 12:31';
+const BUILD_TIMESTAMP = '2025-12-03 12:39';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -281,20 +285,75 @@ if (startRecordingBtn) {
         audioModal.classList.remove('active');
 
         const durationSelect = document.getElementById('audio-duration');
+        const bitrateSelect = document.getElementById('audio-bitrate');
         state.recordingDuration = parseFloat(durationSelect.value) * 60;
+        const selectedBitrate = parseInt(bitrateSelect?.value || '32000');
+
+        debugLog('Recording settings - duration:', state.recordingDuration, 'bitrate:', selectedBitrate);
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Optimized audio constraints for speech recognition
+            const audioConstraints = {
+                audio: {
+                    sampleRate: { ideal: 16000 },  // Optimal for speech recognition
+                    echoCancellation: { ideal: false },
+                    noiseSuppression: { ideal: false },
+                    autoGainControl: { ideal: true }
+                }
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
             state.mediaStream = stream;
 
-            state.mediaRecorder = new MediaRecorder(stream);
+            // Capture actual audio settings for API call
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack) {
+                const settings = audioTrack.getSettings();
+                state.audioSampleRate = settings.sampleRate || 48000;
+                state.audioChannelCount = settings.channelCount || 1;
+                debugLog('Captured audio settings:', settings);
+            }
+
+            // Determine supported audio format (iOS Safari doesn't support WebM)
+            const formatsToTry = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/mp4',
+                'audio/ogg;codecs=opus',
+                ''  // Let browser choose default
+            ];
+
+            let mimeType = undefined;
+            let actualMimeType = 'default';
+            for (const format of formatsToTry) {
+                if (format === '' || MediaRecorder.isTypeSupported(format)) {
+                    mimeType = format || undefined;
+                    actualMimeType = format || 'default';
+                    debugLog('Using audio format:', actualMimeType);
+                    break;
+                }
+            }
+            state.audioMimeType = actualMimeType;
+
+            // Configure MediaRecorder with bitrate
+            const recorderOptions = { audioBitsPerSecond: selectedBitrate };
+            if (mimeType) recorderOptions.mimeType = mimeType;
+
+            state.mediaRecorder = new MediaRecorder(stream, recorderOptions);
             const chunks = [];
 
-            state.mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+            // Collect data every second for better reliability on mobile
+            state.mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
 
             state.mediaRecorder.onstop = () => {
-                state.audioBlob = new Blob(chunks, { type: 'audio/webm' });
-                state.recordedAudioBlob = state.audioBlob; // Store for video generation
+                // Use actual recorded mime type for blob
+                const blobType = state.audioMimeType !== 'default' ? state.audioMimeType : 'audio/webm';
+                state.audioBlob = new Blob(chunks, { type: blobType });
+                state.recordedAudioBlob = state.audioBlob;
+                debugLog('Audio blob created:', state.audioBlob.size, 'bytes, type:', blobType);
+
                 const audioUrl = URL.createObjectURL(state.audioBlob);
                 audioPlayer.src = audioUrl;
 
@@ -306,7 +365,8 @@ if (startRecordingBtn) {
                 stream.getTracks().forEach(track => track.stop());
             };
 
-            state.mediaRecorder.start();
+            // Start recording with 1-second timeslices for reliability
+            state.mediaRecorder.start(1000);
             state.recordingStartTime = Date.now();
 
             recordingVisual.style.display = 'none';
@@ -1248,13 +1308,33 @@ async function runSpeechToText(returnFullInfo = false) {
             try {
                 const base64Audio = reader.result.split(',')[1];
 
+                // Determine encoding based on actual recorded format
+                let encoding = 'ENCODING_UNSPECIFIED';
+                let sampleRate = state.audioSampleRate || 48000;
+
+                if (state.audioMimeType) {
+                    if (state.audioMimeType.includes('opus')) {
+                        encoding = 'WEBM_OPUS';
+                    } else if (state.audioMimeType.includes('mp4') || state.audioMimeType.includes('aac')) {
+                        encoding = 'ENCODING_UNSPECIFIED'; // Let API auto-detect for AAC
+                        sampleRate = state.audioSampleRate || 44100;
+                    } else if (state.audioMimeType.includes('ogg')) {
+                        encoding = 'OGG_OPUS';
+                    }
+                }
+
+                const channelCount = state.audioChannelCount || 1;
+                debugLog('Speech API config - encoding:', encoding, 'sampleRate:', sampleRate, 'channels:', channelCount);
+                debugLog('Audio blob size:', state.audioBlob.size, 'bytes');
+
                 const response = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${state.apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         config: {
-                            encoding: 'WEBM_OPUS',
-                            sampleRateHertz: 48000,
+                            encoding: encoding,
+                            sampleRateHertz: sampleRate,
+                            audioChannelCount: channelCount,
                             languageCode: 'en-US',
                             enableWordTimeOffsets: true,
                             enableAutomaticPunctuation: true,
