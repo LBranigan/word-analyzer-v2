@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 15:45';
+const BUILD_TIMESTAMP = '2025-12-03 16:05';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -667,10 +667,13 @@ async function processImage() {
             });
         }
 
-        state.ocrData = { words };
+        // Post-process: merge hyphenated words that span lines
+        const mergedWords = mergeHyphenatedWords(words);
+
+        state.ocrData = { words: mergedWords };
         state.selectedWords.clear();
 
-        debugLog('OCR found', words.length, 'words');
+        debugLog('OCR found', mergedWords.length, 'words (after merging hyphenated)');
 
         // Draw canvas
         drawImageWithWords();
@@ -690,6 +693,57 @@ async function processImage() {
         loadingOverlay.style.display = 'none';
         alert('Error processing image: ' + error.message);
     }
+}
+
+// Merge hyphenated words that span lines (e.g., "unpre-" + "dictable" = "unpredictable")
+function mergeHyphenatedWords(words) {
+    if (!words || words.length < 2) return words;
+
+    const result = [];
+    let i = 0;
+
+    while (i < words.length) {
+        const currentWord = words[i];
+
+        // Check if word ends with hyphen
+        if (currentWord.text.endsWith('-') && i + 1 < words.length) {
+            const nextWord = words[i + 1];
+
+            // Check if next word is on a different line (y position differs significantly)
+            const currentY = (currentWord.bbox.y0 + currentWord.bbox.y1) / 2;
+            const nextY = (nextWord.bbox.y0 + nextWord.bbox.y1) / 2;
+            const lineHeight = currentWord.bbox.y1 - currentWord.bbox.y0;
+
+            // If next word is on a different line (y differs by more than half line height)
+            if (Math.abs(nextY - currentY) > lineHeight * 0.5) {
+                // Merge the words: remove hyphen and combine
+                const mergedText = currentWord.text.slice(0, -1) + nextWord.text;
+
+                // Combine bounding boxes
+                const mergedBbox = {
+                    x0: Math.min(currentWord.bbox.x0, nextWord.bbox.x0),
+                    y0: Math.min(currentWord.bbox.y0, nextWord.bbox.y0),
+                    x1: Math.max(currentWord.bbox.x1, nextWord.bbox.x1),
+                    y1: Math.max(currentWord.bbox.y1, nextWord.bbox.y1)
+                };
+
+                result.push({
+                    text: mergedText,
+                    bbox: mergedBbox,
+                    vertices: currentWord.vertices // Keep first word's vertices for selection
+                });
+
+                debugLog('Merged hyphenated word:', currentWord.text, '+', nextWord.text, '=', mergedText);
+                i += 2; // Skip both words
+                continue;
+            }
+        }
+
+        result.push(currentWord);
+        i++;
+    }
+
+    return result;
 }
 
 function updateLoadingStep(step) {

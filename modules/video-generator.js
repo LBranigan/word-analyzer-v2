@@ -26,8 +26,12 @@ export async function generateVideo(state, statusDiv, generateBtn) {
         return;
     }
 
+    // Store original button text to restore later
+    const originalButtonText = generateBtn.innerHTML;
+
     try {
         generateBtn.disabled = true;
+        generateBtn.innerHTML = '⏳ Generating...';
         statusDiv.innerHTML = '<div class="video-progress">🎬 Generating video... Please wait</div>';
         statusDiv.style.display = 'block';
 
@@ -45,8 +49,10 @@ export async function generateVideo(state, statusDiv, generateBtn) {
         const lineHeight = 50;
         const fontSize = 36;
 
-        // Prepare word layout (wrap text)
-        const wordLayouts = prepareWordLayouts(analysis.aligned, ctx, canvas, padding, lineHeight, fontSize);
+        // Prepare word layout (wrap text) - include hesitations
+        const hesitations = analysis.errors?.hesitations || [];
+        const spokenWordInfo = state.latestSpokenWords || [];
+        const wordLayouts = prepareWordLayouts(analysis.aligned, hesitations, spokenWordInfo, ctx, canvas, padding, lineHeight, fontSize);
 
         // Create audio context and decode audio
         const audioContext = new AudioContext();
@@ -107,6 +113,7 @@ export async function generateVideo(state, statusDiv, generateBtn) {
                 </div>
             `;
 
+            generateBtn.innerHTML = originalButtonText;
             generateBtn.disabled = false;
         };
 
@@ -134,6 +141,7 @@ export async function generateVideo(state, statusDiv, generateBtn) {
     } catch (error) {
         debugError('Error generating video:', error);
         statusDiv.innerHTML = `<div class="error">Error generating video: ${error.message}</div>`;
+        generateBtn.innerHTML = originalButtonText;
         generateBtn.disabled = false;
     }
 }
@@ -141,12 +149,65 @@ export async function generateVideo(state, statusDiv, generateBtn) {
 /**
  * Prepare word layouts for video rendering
  */
-function prepareWordLayouts(aligned, ctx, canvas, padding, lineHeight, fontSize) {
+function prepareWordLayouts(aligned, hesitations, spokenWordInfo, ctx, canvas, padding, lineHeight, fontSize) {
     const wordLayouts = [];
     let xPos = padding;
     let yPos = padding + fontSize;
 
-    aligned.forEach((item) => {
+    // Build a map of hesitations by the word index they occurred before
+    const hesitationsByPosition = new Map();
+    if (hesitations.length > 0 && spokenWordInfo.length > 0) {
+        hesitations.forEach(h => {
+            const hesitationWord = spokenWordInfo[h.spokenIndex];
+            if (hesitationWord && hesitationWord.startTime) {
+                const hTime = parseFloat(hesitationWord.startTime.replace('s', ''));
+                // Find which aligned word this hesitation comes before
+                for (let i = 0; i < aligned.length; i++) {
+                    const alignedItem = aligned[i];
+                    if (alignedItem.startTime) {
+                        const aTime = parseFloat(alignedItem.startTime.replace('s', ''));
+                        if (aTime >= hTime) {
+                            if (!hesitationsByPosition.has(i)) {
+                                hesitationsByPosition.set(i, []);
+                            }
+                            hesitationsByPosition.get(i).push(h);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    aligned.forEach((item, idx) => {
+        // Insert hesitation markers before this word if any
+        if (hesitationsByPosition.has(idx)) {
+            hesitationsByPosition.get(idx).forEach(h => {
+                const hesWord = `[${h.word || '...'}]`;
+                ctx.font = `italic ${fontSize - 4}px Arial`;
+                const hesWidth = ctx.measureText(hesWord + ' ').width;
+
+                if (xPos + hesWidth > canvas.width - padding) {
+                    xPos = padding;
+                    yPos += lineHeight;
+                }
+
+                const hesitationSpoken = spokenWordInfo[h.spokenIndex];
+                wordLayouts.push({
+                    word: hesWord,
+                    x: xPos,
+                    y: yPos,
+                    width: hesWidth,
+                    status: 'hesitation',
+                    spoken: h.word,
+                    startTime: hesitationSpoken?.startTime,
+                    endTime: hesitationSpoken?.endTime
+                });
+
+                xPos += hesWidth;
+            });
+        }
+
         const word = item.expected;
         ctx.font = `${fontSize}px Arial`;
         const wordWidth = ctx.measureText(word + ' ').width;
@@ -189,10 +250,15 @@ function createRenderFunction(ctx, canvas, wordLayouts, padding, fontSize) {
         ctx.fillText('Oral Fluency Analysis', padding, 35);
 
         // Draw each word with appropriate highlighting
-        ctx.font = `${fontSize}px Arial`;
-
         wordLayouts.forEach(layout => {
             const { color, isCurrentWord } = getWordColor(layout, currentTime);
+
+            // Use italic font for hesitations
+            if (layout.status === 'hesitation') {
+                ctx.font = `italic ${fontSize - 4}px Arial`;
+            } else {
+                ctx.font = `${fontSize}px Arial`;
+            }
 
             // Draw word
             ctx.fillStyle = color;
@@ -232,6 +298,8 @@ function getWordColor(layout, currentTime) {
                 color = '#ef4444'; // Red
             } else if (layout.status === 'substituted') {
                 color = '#dc2626'; // Dark red
+            } else if (layout.status === 'hesitation') {
+                color = '#7c3aed'; // Purple
             }
         } else if (currentTime > endTime) {
             // Already spoken - use dimmer colors
@@ -243,6 +311,8 @@ function getWordColor(layout, currentTime) {
                 color = '#fca5a5'; // Light red
             } else if (layout.status === 'substituted') {
                 color = '#fca5a5'; // Light red
+            } else if (layout.status === 'hesitation') {
+                color = '#c4b5fd'; // Light purple
             }
         }
     } else {
@@ -253,6 +323,8 @@ function getWordColor(layout, currentTime) {
             color = '#fdba74';
         } else if (layout.status === 'skipped') {
             color = '#fca5a5';
+        } else if (layout.status === 'hesitation') {
+            color = '#c4b5fd';
         }
     }
 
@@ -264,19 +336,22 @@ function getWordColor(layout, currentTime) {
  */
 function drawLegend(ctx, canvas, padding) {
     const legendY = canvas.height - 40;
-    ctx.font = '20px Arial';
+    ctx.font = '18px Arial';
 
     ctx.fillStyle = '#22c55e';
     ctx.fillText('■ Correct', padding, legendY);
 
     ctx.fillStyle = '#f97316';
-    ctx.fillText('■ Misread', padding + 150, legendY);
+    ctx.fillText('■ Misread', padding + 120, legendY);
 
     ctx.fillStyle = '#ef4444';
-    ctx.fillText('■ Skipped', padding + 300, legendY);
+    ctx.fillText('■ Skipped', padding + 240, legendY);
+
+    ctx.fillStyle = '#7c3aed';
+    ctx.fillText('■ Hesitation', padding + 360, legendY);
 
     ctx.fillStyle = '#cccccc';
-    ctx.fillText('■ Not Yet Spoken', padding + 450, legendY);
+    ctx.fillText('■ Not Yet Spoken', padding + 500, legendY);
 }
 
 export default { generateVideo };
