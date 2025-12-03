@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 14:22';
+const BUILD_TIMESTAMP = '2025-12-03 14:28';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -471,12 +471,22 @@ async function initCamera() {
     cameraCanvas.style.display = 'none';
     if (cameraPreview) cameraPreview.style.display = 'none';
 
+    // Stop any existing stream first
+    if (state.mediaStream) {
+        state.mediaStream.getTracks().forEach(track => track.stop());
+        state.mediaStream = null;
+    }
+    camera.srcObject = null;
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
         });
         camera.srcObject = stream;
         state.mediaStream = stream;
+
+        // Ensure video plays (some browsers need explicit play after srcObject change)
+        await camera.play().catch(e => debugLog('Camera autoplay:', e.message));
     } catch (error) {
         debugError('Error accessing camera:', error);
     }
