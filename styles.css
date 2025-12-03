@@ -1426,6 +1426,44 @@ a:hover { color: var(--color-primary-light); }
     background: var(--color-paper);
 }
 
+/* Capture success message */
+.capture-success-msg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.capture-success-msg.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.capture-success-msg.hidden {
+    display: none;
+}
+
+.capture-success-msg .success-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: white;
+    color: #22c55e;
+    border-radius: 50%;
+    font-weight: bold;
+}
+
 .capture-btn {
     position: relative;
     width: 72px;

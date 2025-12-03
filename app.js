@@ -103,7 +103,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 14:38';
+const BUILD_TIMESTAMP = '2025-12-03 14:45';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -492,6 +492,37 @@ async function initCamera() {
     }
 }
 
+function showCaptureSuccess() {
+    // Create or get success message element
+    let successMsg = document.getElementById('capture-success-msg');
+    if (!successMsg) {
+        successMsg = document.createElement('div');
+        successMsg.id = 'capture-success-msg';
+        successMsg.className = 'capture-success-msg';
+        successMsg.innerHTML = '<span class="success-icon">✓</span> Captured successfully!';
+        // Insert after the camera viewport
+        const cameraViewport = document.querySelector('.camera-viewport');
+        if (cameraViewport) {
+            cameraViewport.after(successMsg);
+        }
+    }
+    successMsg.classList.remove('hidden');
+    successMsg.classList.add('show');
+
+    // On mobile, scroll to the next button
+    if (window.innerWidth <= 768) {
+        setTimeout(() => {
+            nextToHighlightBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    }
+
+    // Hide message after 3 seconds
+    setTimeout(() => {
+        successMsg.classList.remove('show');
+        successMsg.classList.add('hidden');
+    }, 3000);
+}
+
 if (captureBtn) {
     captureBtn.addEventListener('click', () => {
         const ctx = cameraCanvas.getContext('2d');
@@ -514,6 +545,9 @@ if (captureBtn) {
         if (state.mediaStream) {
             state.mediaStream.getTracks().forEach(track => track.stop());
         }
+
+        // Show success message and scroll to next button on mobile
+        showCaptureSuccess();
     });
 }
 
