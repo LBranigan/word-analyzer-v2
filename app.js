@@ -1940,7 +1940,7 @@ if (saveAssessmentBtn) {
         const analysis = state.latestAnalysis;
         const prosodyMetrics = state.latestProsodyMetrics;
 
-        // Build assessment data with full analysis if available
+        // Build assessment data with full analysis for historical viewing
         const assessmentData = {
             totalWords: state.selectedWords.size,
             wordList: selectedTexts,
@@ -1954,7 +1954,13 @@ if (saveAssessmentBtn) {
                 substitutedWords: analysis?.errors?.substitutedWords || [],
                 hesitations: analysis?.errors?.hesitations?.length || 0,
                 repeatedWords: analysis?.errors?.repeatedWords?.length || 0
-            }
+            },
+            // Full data for historical viewing
+            expectedWords: state.latestExpectedWords || selectedTexts,
+            aligned: analysis?.aligned || null,
+            spokenWords: state.latestSpokenWords || [],
+            prosodyMetrics: prosodyMetrics || null,
+            errorPatterns: state.latestErrorPatterns || null
         };
 
         const success = await FirebaseDB.addAssessmentToStudent(studentId, assessmentData);
@@ -2036,15 +2042,17 @@ if (confirmAddStudentBtn) {
 // ============ STUDENT PROFILE ============
 const backToClassBtn = document.getElementById('back-to-class-btn');
 const deleteStudentBtn = document.getElementById('delete-student-btn');
+let currentViewingStudentId = null;
 
 window.showStudentProfileAsync = async function(studentId) {
     const student = await FirebaseDB.getStudent(studentId);
     if (!student) return;
 
     state.currentStudentId = studentId;
+    currentViewingStudentId = studentId;
 
     document.getElementById('student-profile-name').textContent = student.name;
-    document.getElementById('student-profile-subtitle').textContent = student.grade || 'No grade set';
+    document.getElementById('student-profile-subtitle').textContent = `${student.grade || 'No grade set'} • ${student.assessments?.length || 0} assessment${(student.assessments?.length || 0) !== 1 ? 's' : ''}`;
     document.getElementById('profile-avatar').textContent = student.name.charAt(0).toUpperCase();
 
     const stats = FirebaseDB.getStudentStats(student);
@@ -2055,33 +2063,391 @@ window.showStudentProfileAsync = async function(studentId) {
         <div class="stat-card"><span class="stat-value">${stats.avgProsody}</span><span class="stat-label">Avg Prosody</span></div>
     `;
 
-    const historyContainer = document.getElementById('assessment-history');
-    if (!student.assessments || student.assessments.length === 0) {
-        historyContainer.innerHTML = '<p class="no-assessments">No assessments yet</p>';
-    } else {
-        historyContainer.innerHTML = `<h3>Assessment History</h3>` +
-            student.assessments.slice().reverse().map(a => `
-                <div class="assessment-item">
-                    <div class="assessment-header">
-                        <span class="assessment-date">${new Date(a.date).toLocaleDateString()}</span>
-                        <span class="assessment-score ${getAccuracyClassification(a.accuracy)}">${a.accuracy?.toFixed(1) || 'N/A'}%</span>
-                    </div>
-                    <div class="assessment-details">
-                        <span>Words: ${a.totalWords || 0}</span>
-                        <span>WPM: ${a.wpm || 0}</span>
-                        <span>Prosody: ${a.prosodyScore?.toFixed(1) || 'N/A'}</span>
-                    </div>
-                </div>
-            `).join('');
-    }
+    // Render assessment history with View/Delete buttons
+    renderAssessmentHistory(student);
+
+    // Render progress chart and pattern analysis after a short delay
+    setTimeout(() => {
+        renderProgressChart(student);
+        renderAggregatedPatterns(student);
+    }, 100);
 
     showSection('student-profile');
 };
+
+// Render assessment history with action buttons
+function renderAssessmentHistory(student) {
+    const historyContainer = document.getElementById('assessment-history');
+    if (!student.assessments || student.assessments.length === 0) {
+        historyContainer.innerHTML = '<p class="no-assessments">No assessments yet. Complete an assessment and save it to this student\'s profile.</p>';
+        return;
+    }
+
+    const sortedAssessments = [...student.assessments].sort((a, b) => b.date - a.date);
+
+    historyContainer.innerHTML = '<h3>Assessment History</h3>' + sortedAssessments.map(a => {
+        const date = new Date(a.date);
+        const dateStr = date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const accuracy = a.accuracy || 0;
+        const totalErrors = (a.errors?.skippedWords?.length || 0) + (a.errors?.misreadWords?.length || 0) + (a.errors?.substitutedWords?.length || 0);
+        const hasDetailedData = a.expectedWords && a.aligned;
+
+        return `
+            <div class="assessment-item">
+                <div class="assessment-header">
+                    <span class="assessment-date">${dateStr}</span>
+                    <span class="assessment-score ${getAccuracyClassification(accuracy)}">${accuracy.toFixed(1)}%</span>
+                </div>
+                <div class="assessment-details">
+                    <span>Correct: ${a.correctCount || 0}</span>
+                    <span>Total: ${a.totalWords || 0}</span>
+                    <span>Errors: ${totalErrors}</span>
+                    <span>WPM: ${a.wpm || 'N/A'}</span>
+                    <span>Prosody: ${a.prosodyScore?.toFixed(1) || 'N/A'}</span>
+                </div>
+                <div class="assessment-actions">
+                    <button class="btn btn-primary btn-small view-assessment-btn" data-assessment-id="${a.id}" ${!hasDetailedData ? 'disabled title="Old assessment - no detailed data"' : ''}>View Details</button>
+                    <button class="btn btn-danger btn-small delete-assessment-btn" data-assessment-id="${a.id}">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add event listeners
+    document.querySelectorAll('.view-assessment-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const assessmentId = btn.getAttribute('data-assessment-id');
+            viewHistoricalAssessment(currentViewingStudentId, assessmentId);
+        });
+    });
+
+    document.querySelectorAll('.delete-assessment-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const assessmentId = btn.getAttribute('data-assessment-id');
+            if (confirm('Are you sure you want to delete this assessment?')) {
+                await FirebaseDB.deleteAssessment(currentViewingStudentId, assessmentId);
+                window.showStudentProfileAsync(currentViewingStudentId);
+            }
+        });
+    });
+}
+
+// View historical assessment details
+async function viewHistoricalAssessment(studentId, assessmentId) {
+    const student = await FirebaseDB.getStudent(studentId);
+    if (!student) { alert('Student not found'); return; }
+
+    const assessment = student.assessments.find(a => a.id === assessmentId);
+    if (!assessment) { alert('Assessment not found'); return; }
+
+    if (!assessment.expectedWords || !assessment.aligned) {
+        alert('This assessment was created before detailed viewing was available. Only summary data is shown.');
+        return;
+    }
+
+    // Load historical data into state
+    state.latestExpectedWords = assessment.expectedWords;
+    state.latestSpokenWords = assessment.spokenWords || [];
+    state.latestProsodyMetrics = assessment.prosodyMetrics || { wpm: assessment.wpm, prosodyScore: assessment.prosodyScore };
+    state.latestAnalysis = { aligned: assessment.aligned, errors: assessment.errors, correctCount: assessment.correctCount };
+    state.latestErrorPatterns = assessment.errorPatterns || null;
+    state.viewingHistoricalAssessment = true;
+    state.historicalAssessmentStudentId = studentId;
+
+    // Display the results
+    displayPronunciationResults(state.latestExpectedWords, state.latestSpokenWords, state.latestAnalysis, state.latestProsodyMetrics);
+
+    showSection('results');
+
+    // Show historical banner and hide save card
+    const historicalBanner = document.getElementById('historical-assessment-banner');
+    const saveCard = document.querySelector('.save-card');
+    const studentNameSpan = document.getElementById('historical-student-name');
+    const dateSpan = document.getElementById('historical-assessment-date');
+
+    if (historicalBanner) {
+        historicalBanner.style.display = 'flex';
+        if (studentNameSpan) studentNameSpan.textContent = student.name;
+        if (dateSpan) dateSpan.textContent = new Date(assessment.date).toLocaleDateString();
+    }
+    if (saveCard) saveCard.style.display = 'none';
+}
+
+// Render progress chart
+function renderProgressChart(student) {
+    const canvas = document.getElementById('progress-chart');
+    if (!canvas || !student.assessments || student.assessments.length === 0) {
+        if (canvas) canvas.style.display = 'none';
+        return;
+    }
+    canvas.style.display = 'block';
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width = canvas.parentElement.offsetWidth * 2;
+    const height = canvas.height = 400;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const sortedAssessments = [...student.assessments].sort((a, b) => a.date - b.date);
+    const count = sortedAssessments.length;
+    if (count === 0) return;
+
+    const padding = 60;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+
+    // Background
+    ctx.fillStyle = '#f9fafb';
+    ctx.fillRect(padding, padding, chartWidth, chartHeight);
+
+    // Grid
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 10; i++) {
+        const y = padding + (chartHeight / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(padding + chartWidth, y);
+        ctx.stroke();
+    }
+
+    // Data
+    const accuracyData = sortedAssessments.map(a => a.accuracy || 0);
+    const wpmData = sortedAssessments.map(a => Math.min((a.wpm || 0) / 2, 100));
+    const prosodyData = sortedAssessments.map(a => (a.prosodyScore || 0) * 25);
+
+    // Axes
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, padding + chartHeight);
+    ctx.lineTo(padding + chartWidth, padding + chartHeight);
+    ctx.stroke();
+
+    // Y labels
+    ctx.fillStyle = '#374151';
+    ctx.font = '24px Arial';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i <= 10; i++) {
+        const y = padding + (chartHeight / 10) * i;
+        ctx.fillText(100 - i * 10, padding - 10, y);
+    }
+
+    // X labels
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = '20px Arial';
+    for (let i = 0; i < count; i++) {
+        const x = padding + (chartWidth / (count - 1 || 1)) * i;
+        const date = new Date(sortedAssessments[i].date);
+        ctx.fillText(`${date.getMonth() + 1}/${date.getDate()}`, x, padding + chartHeight + 15);
+    }
+
+    // Draw lines helper
+    function drawLine(data, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        data.forEach((value, i) => {
+            const x = padding + (chartWidth / (count - 1 || 1)) * i;
+            const y = padding + chartHeight - (value / 100) * chartHeight;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        data.forEach((value, i) => {
+            const x = padding + (chartWidth / (count - 1 || 1)) * i;
+            const y = padding + chartHeight - (value / 100) * chartHeight;
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    drawLine(accuracyData, '#10b981');
+    drawLine(wpmData, '#3b82f6');
+    drawLine(prosodyData, '#8b5cf6');
+
+    // Title
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#111827';
+    ctx.fillText('Progress Over Time', padding, 35);
+
+    // Legend
+    const legendItems = [{ label: 'Accuracy', color: '#10b981' }, { label: 'WPM (÷2)', color: '#3b82f6' }, { label: 'Prosody (×25)', color: '#8b5cf6' }];
+    ctx.font = 'bold 18px Arial';
+    let lx = width - padding - 350;
+    legendItems.forEach(item => {
+        ctx.fillStyle = item.color;
+        ctx.fillRect(lx, 28, 14, 14);
+        ctx.fillStyle = '#374151';
+        ctx.textAlign = 'left';
+        ctx.fillText(item.label, lx + 20, 35);
+        lx += 120;
+    });
+}
+
+// Aggregate error patterns across all assessments
+function aggregateErrorPatterns(student) {
+    const aggregated = {
+        totalAssessments: student.assessments?.length || 0,
+        assessmentsWithPatterns: 0,
+        phonicsPatterns: { initialSoundErrors: 0, finalSoundErrors: 0, vowelPatterns: 0, consonantBlends: 0, rControlledVowels: 0, silentLetters: 0, digraphs: 0 },
+        readingStrategies: { firstLetterGuessing: 0, partialDecoding: 0, contextGuessing: 0 },
+        speechPatterns: { rSoundIssues: 0, sSoundIssues: 0, lSoundIssues: 0, thSoundIssues: 0 },
+        primaryIssues: {},
+        severityCounts: { excellent: 0, mild: 0, moderate: 0, significant: 0 }
+    };
+
+    (student.assessments || []).forEach(assessment => {
+        if (assessment.errorPatterns) {
+            aggregated.assessmentsWithPatterns++;
+            const p = assessment.errorPatterns;
+
+            aggregated.phonicsPatterns.initialSoundErrors += p.phonicsPatterns?.initialSoundErrors?.length || 0;
+            aggregated.phonicsPatterns.finalSoundErrors += p.phonicsPatterns?.finalSoundErrors?.length || 0;
+            aggregated.phonicsPatterns.vowelPatterns += p.phonicsPatterns?.vowelPatterns?.length || 0;
+            aggregated.phonicsPatterns.consonantBlends += p.phonicsPatterns?.consonantBlends?.length || 0;
+            aggregated.phonicsPatterns.digraphs += p.phonicsPatterns?.digraphs?.length || 0;
+
+            aggregated.readingStrategies.firstLetterGuessing += p.readingStrategies?.firstLetterGuessing?.length || 0;
+
+            aggregated.speechPatterns.rSoundIssues += p.speechPatterns?.rSoundIssues?.length || 0;
+            aggregated.speechPatterns.thSoundIssues += p.speechPatterns?.thSoundIssues?.length || 0;
+
+            (p.summary?.primaryIssues || []).forEach(issue => {
+                aggregated.primaryIssues[issue] = (aggregated.primaryIssues[issue] || 0) + 1;
+            });
+
+            if (p.summary?.severity) aggregated.severityCounts[p.summary.severity]++;
+        }
+    });
+
+    return aggregated;
+}
+
+// Generate insights from aggregated patterns
+function generateMacroInsights(aggregated) {
+    const insights = [];
+
+    if (aggregated.assessmentsWithPatterns === 0) {
+        return ['No detailed pattern data yet. Complete new assessments to see insights.'];
+    }
+
+    const totalPhonics = Object.values(aggregated.phonicsPatterns).reduce((a, b) => a + b, 0);
+    if (totalPhonics > 0) {
+        const avgPer = (totalPhonics / aggregated.assessmentsWithPatterns).toFixed(1);
+        const issues = [
+            { name: 'Initial sounds', count: aggregated.phonicsPatterns.initialSoundErrors },
+            { name: 'Final sounds', count: aggregated.phonicsPatterns.finalSoundErrors },
+            { name: 'Consonant blends', count: aggregated.phonicsPatterns.consonantBlends }
+        ].filter(i => i.count > 0).sort((a, b) => b.count - a.count).slice(0, 2);
+
+        if (issues.length > 0) {
+            insights.push(`📚 Common phonics challenges: ${issues.map(i => i.name).join(', ')} (avg ${avgPer}/assessment)`);
+        }
+    }
+
+    if (aggregated.readingStrategies.firstLetterGuessing >= aggregated.assessmentsWithPatterns * 2) {
+        insights.push(`🎯 Student relies on guessing strategies - focus on systematic phonics`);
+    }
+
+    const totalSpeech = Object.values(aggregated.speechPatterns).reduce((a, b) => a + b, 0);
+    if (totalSpeech >= aggregated.assessmentsWithPatterns * 2) {
+        insights.push(`🗣️ Speech pattern issues detected - consider speech-language evaluation`);
+    }
+
+    if (aggregated.severityCounts.excellent > aggregated.totalAssessments * 0.3) {
+        insights.push(`✨ Strong performance - ${Math.round(aggregated.severityCounts.excellent / aggregated.totalAssessments * 100)}% excellent accuracy`);
+    }
+
+    if (aggregated.severityCounts.significant > aggregated.totalAssessments * 0.3) {
+        insights.push(`⚠️ ${Math.round(aggregated.severityCounts.significant / aggregated.totalAssessments * 100)}% significant challenges - intensive support recommended`);
+    }
+
+    const topIssue = Object.entries(aggregated.primaryIssues).sort((a, b) => b[1] - a[1])[0];
+    if (topIssue && topIssue[1] >= aggregated.assessmentsWithPatterns * 0.5) {
+        insights.push(`🔍 Persistent: "${topIssue[0]}" in ${topIssue[1]} of ${aggregated.assessmentsWithPatterns} assessments`);
+    }
+
+    return insights.length > 0 ? insights : ['Continue regular assessments to identify patterns.'];
+}
+
+// Render aggregated patterns section
+function renderAggregatedPatterns(student) {
+    const section = document.getElementById('aggregated-patterns-section');
+    if (!section) return;
+
+    const aggregated = aggregateErrorPatterns(student);
+    const insights = generateMacroInsights(aggregated);
+
+    if (aggregated.assessmentsWithPatterns === 0) {
+        section.innerHTML = `
+            <div class="pattern-analysis-card">
+                <h3>Pattern Analysis</h3>
+                <p class="pattern-note">Complete assessments to see error pattern analysis and insights.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const createPatternItem = (label, count) => count > 0 ? `<div class="pattern-item"><span class="pattern-label">${label}</span><span class="pattern-count">${count}</span></div>` : '';
+
+    const phonicsHtml = [
+        createPatternItem('Initial Sounds', aggregated.phonicsPatterns.initialSoundErrors),
+        createPatternItem('Final Sounds', aggregated.phonicsPatterns.finalSoundErrors),
+        createPatternItem('Consonant Blends', aggregated.phonicsPatterns.consonantBlends),
+        createPatternItem('Digraphs', aggregated.phonicsPatterns.digraphs)
+    ].filter(h => h).join('');
+
+    const speechHtml = [
+        createPatternItem('R Sound', aggregated.speechPatterns.rSoundIssues),
+        createPatternItem('TH Sound', aggregated.speechPatterns.thSoundIssues)
+    ].filter(h => h).join('');
+
+    section.innerHTML = `
+        <div class="pattern-analysis-card">
+            <h3>Pattern Analysis Across ${aggregated.assessmentsWithPatterns} Assessment${aggregated.assessmentsWithPatterns > 1 ? 's' : ''}</h3>
+            <div class="macro-insights">
+                <h4>Key Insights:</h4>
+                <ul class="insights-list">${insights.map(i => `<li>${i}</li>`).join('')}</ul>
+            </div>
+            ${phonicsHtml ? `<div class="pattern-breakdown"><h4>Phonics Patterns:</h4><div class="pattern-grid">${phonicsHtml}</div></div>` : ''}
+            ${speechHtml ? `<div class="pattern-breakdown"><h4>Speech Patterns:</h4><div class="pattern-grid">${speechHtml}</div></div>` : ''}
+        </div>
+    `;
+}
 
 if (backToClassBtn) {
     backToClassBtn.addEventListener('click', async () => {
         await window.renderStudentsGridAsync();
         showSection('class-overview');
+    });
+}
+
+// Back to student profile from historical assessment view
+const backToProfileBtn = document.getElementById('back-to-profile-btn');
+if (backToProfileBtn) {
+    backToProfileBtn.addEventListener('click', () => {
+        // Reset historical viewing state
+        state.viewingHistoricalAssessment = false;
+
+        // Hide banner and show save card again
+        const historicalBanner = document.getElementById('historical-assessment-banner');
+        const saveCard = document.querySelector('.save-card');
+        if (historicalBanner) historicalBanner.style.display = 'none';
+        if (saveCard) saveCard.style.display = '';
+
+        // Go back to student profile
+        if (state.historicalAssessmentStudentId) {
+            window.showStudentProfileAsync(state.historicalAssessmentStudentId);
+        }
     });
 }
 

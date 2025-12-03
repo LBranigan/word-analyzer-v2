@@ -1860,6 +1860,242 @@ a:hover { color: var(--color-primary-light); }
     color: var(--color-primary);
 }
 
+/* Progress Chart */
+.progress-chart-container {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+.progress-chart-container h3 {
+    font-size: 1.125rem;
+    color: var(--color-charcoal);
+    margin-bottom: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+#progress-chart {
+    width: 100%;
+    height: 200px;
+    display: block;
+}
+
+/* Assessment History */
+.assessment-history-container {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+.assessment-history-container h3 {
+    font-size: 1.125rem;
+    color: var(--color-charcoal);
+    margin-bottom: var(--space-lg);
+}
+
+.assessment-history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-lg);
+    background: var(--color-paper);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
+    transition: all var(--transition-fast);
+}
+
+.assessment-history-item:last-child {
+    margin-bottom: 0;
+}
+
+.assessment-history-item:hover {
+    background: var(--color-sand);
+}
+
+.assessment-history-info {
+    flex: 1;
+}
+
+.assessment-history-date {
+    font-weight: 600;
+    color: var(--color-charcoal);
+    margin-bottom: var(--space-xs);
+}
+
+.assessment-history-stats {
+    display: flex;
+    gap: var(--space-lg);
+    font-size: 0.875rem;
+    color: var(--color-slate);
+}
+
+.assessment-history-stats span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.assessment-history-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.view-assessment-btn,
+.delete-assessment-btn {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
+}
+
+.view-assessment-btn {
+    background: var(--color-primary);
+    color: white;
+}
+
+.view-assessment-btn:hover {
+    background: var(--color-primary-dark);
+}
+
+.delete-assessment-btn {
+    background: transparent;
+    color: var(--color-error);
+    border: 1px solid var(--color-error);
+}
+
+.delete-assessment-btn:hover {
+    background: var(--color-error);
+    color: white;
+}
+
+/* Aggregated Patterns Section */
+#aggregated-patterns-section {
+    margin-bottom: var(--space-xl);
+}
+
+.pattern-analysis-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+.pattern-analysis-card h3 {
+    font-size: 1.125rem;
+    color: var(--color-charcoal);
+    margin-bottom: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* Macro Insights */
+.macro-insights {
+    background: linear-gradient(135deg, var(--color-accent-light) 0%, #f0fdf4 100%);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-xl);
+    border-left: 4px solid var(--color-accent);
+}
+
+.macro-insights h4 {
+    color: var(--color-accent);
+    margin-bottom: var(--space-md);
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.insights-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.insights-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    font-size: 0.9rem;
+    color: var(--color-charcoal);
+}
+
+.insights-list li::before {
+    content: "→";
+    color: var(--color-accent);
+    font-weight: bold;
+}
+
+/* Pattern Categories Grid */
+.pattern-categories-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-lg);
+}
+
+.pattern-category {
+    background: var(--color-paper);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+}
+
+.pattern-category h4 {
+    font-size: 0.95rem;
+    color: var(--color-primary);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 2px solid var(--color-primary-light);
+}
+
+.pattern-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.pattern-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+}
+
+.pattern-item .pattern-name {
+    color: var(--color-charcoal);
+}
+
+.pattern-item .pattern-count {
+    background: var(--color-primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Empty State for Patterns */
+.pattern-empty-state {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--color-slate);
+}
+
+.pattern-empty-state svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--space-md);
+    opacity: 0.5;
+}
+
 /* Modals */
 .modal {
     display: none;
