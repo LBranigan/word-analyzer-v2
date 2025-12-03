@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 15:15';
+const BUILD_TIMESTAMP = '2025-12-03 15:25';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -1461,7 +1461,26 @@ async function runSpeechToText(returnFullInfo = false) {
 }
 
 function normalizeWord(word) {
-    return word.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let normalized = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // Convert numbers to words and vice versa for matching
+    const numberToWord = {
+        '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+        '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+        '10': 'ten', '11': 'eleven', '12': 'twelve', '13': 'thirteen',
+        '14': 'fourteen', '15': 'fifteen', '16': 'sixteen', '17': 'seventeen',
+        '18': 'eighteen', '19': 'nineteen', '20': 'twenty', '30': 'thirty',
+        '40': 'forty', '50': 'fifty', '60': 'sixty', '70': 'seventy',
+        '80': 'eighty', '90': 'ninety', '100': 'hundred', '1000': 'thousand'
+    };
+
+    // If it's a number, convert to word
+    if (numberToWord[normalized]) {
+        return numberToWord[normalized];
+    }
+
+    // If it's a word, check if it matches a number word (no conversion needed, already a word)
+    return normalized;
 }
 
 function isFillerWord(word) {
