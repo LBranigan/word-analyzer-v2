@@ -16,3 +16,6 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Compliance docs (private - not for git)
+compliance/

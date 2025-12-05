@@ -113,6 +113,9 @@ export async function generateVideo(state, statusDiv, generateBtn) {
                 </div>
             `;
 
+            // Revoke blob URL after 60 seconds to free memory (user should have downloaded by then)
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+
             generateBtn.innerHTML = originalButtonText;
             generateBtn.disabled = false;
         };
