@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-05 08:51';
+const BUILD_TIMESTAMP = '2025-12-05 08:55';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -3052,6 +3052,25 @@ if (newAssessmentSidebarBtn) {
         state.capturedImage = null;
         state.selectedWords.clear();
         showSection('audio');
+    });
+}
+
+// Make sidebar brand logo clickable to start new assessment
+const sidebarBrandLink = document.getElementById('sidebar-brand-link');
+if (sidebarBrandLink) {
+    const startNewAssessment = () => {
+        closeSidebar();
+        state.audioBlob = null;
+        state.capturedImage = null;
+        state.selectedWords.clear();
+        showSection('audio');
+    };
+    sidebarBrandLink.addEventListener('click', startNewAssessment);
+    sidebarBrandLink.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            startNewAssessment();
+        }
     });
 }
 
