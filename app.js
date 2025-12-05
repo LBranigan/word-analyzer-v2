@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-05 13:22';
+const BUILD_TIMESTAMP = '2025-12-05 13:31';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2324,6 +2324,170 @@ function exportAssessmentData() {
     debugLog('Assessment data exported:', filename);
 }
 
+// ============ EXPORT ALL STUDENT DATA (bulk export for Standard Celeration Chart) ============
+async function exportAllStudentData(studentId) {
+    const student = await FirebaseDB.getStudent(studentId);
+    if (!student) {
+        alert('Could not load student data.');
+        return;
+    }
+
+    if (!student.assessments || student.assessments.length === 0) {
+        alert('No assessments to export for this student.');
+        return;
+    }
+
+    // Sort assessments by date (oldest first for charting)
+    const sortedAssessments = [...student.assessments].sort((a, b) => a.date - b.date);
+
+    // Process each assessment into celeration-ready format
+    const assessmentsData = sortedAssessments.map((assessment, index) => {
+        const date = new Date(assessment.date);
+        const readingTimeSeconds = assessment.prosodyMetrics?.readingTime || 60;
+        const readingTimeMinutes = readingTimeSeconds / 60;
+
+        // Calculate error counts
+        const skippedCount = assessment.errors?.skippedWords?.length || 0;
+        const misreadCount = assessment.errors?.misreadWords?.length || 0;
+        const substitutedCount = assessment.errors?.substitutedWords?.length || 0;
+        const hesitationCount = typeof assessment.errors?.hesitations === 'number'
+            ? assessment.errors.hesitations
+            : (assessment.errors?.hesitations?.length || 0);
+        const repeatedCount = typeof assessment.errors?.repeatedWords === 'number'
+            ? assessment.errors.repeatedWords
+            : (assessment.errors?.repeatedWords?.length || 0);
+        const totalErrors = skippedCount + misreadCount + substitutedCount;
+
+        const correctCount = assessment.correctCount || 0;
+        const totalWords = assessment.totalWords || 0;
+        const accuracy = assessment.accuracy || (totalWords > 0 ? (correctCount / totalWords) * 100 : 0);
+
+        // Calculate count per minute
+        const correctPerMinute = readingTimeMinutes > 0 ? correctCount / readingTimeMinutes : 0;
+        const errorsPerMinute = readingTimeMinutes > 0 ? totalErrors / readingTimeMinutes : 0;
+
+        return {
+            // Assessment identifier
+            assessmentIndex: index + 1,
+            assessmentId: assessment.id,
+
+            // Standard Celeration Chart ready data
+            celeration: {
+                date: date.toISOString().slice(0, 10),
+                timestamp: assessment.date,
+                calendarDay: Math.floor((date - new Date(date.getFullYear(), 0, 1)) / 86400000) + 1,
+                countingTimeSec: readingTimeSeconds,
+                countingTimeMin: Math.round(readingTimeMinutes * 100) / 100,
+                correctCount: correctCount,
+                errorCount: totalErrors,
+                correctPerMinute: Math.round(correctPerMinute * 100) / 100,
+                errorsPerMinute: Math.round(errorsPerMinute * 100) / 100
+            },
+
+            // Core performance metrics
+            performance: {
+                totalWords: totalWords,
+                correctCount: correctCount,
+                accuracy: Math.round(accuracy * 100) / 100,
+                wpm: assessment.wpm || 0,
+                readingTimeSeconds: Math.round(readingTimeSeconds * 100) / 100
+            },
+
+            // Prosody metrics
+            prosody: {
+                score: assessment.prosodyScore || assessment.prosodyMetrics?.prosodyScore || 0,
+                grade: assessment.prosodyMetrics?.prosodyGrade || 'N/A'
+            },
+
+            // Error breakdown
+            errors: {
+                total: totalErrors,
+                skipped: skippedCount,
+                misread: misreadCount,
+                substituted: substitutedCount,
+                hesitations: hesitationCount,
+                repeated: repeatedCount
+            },
+
+            // Error patterns (if available)
+            patterns: assessment.errorPatterns ? {
+                severity: assessment.errorPatterns.summary?.severity || 'unknown',
+                primaryIssues: assessment.errorPatterns.summary?.primaryIssues || [],
+                phonics: {
+                    initialSoundErrors: assessment.errorPatterns.phonicsPatterns?.initialSoundErrors?.length || 0,
+                    finalSoundErrors: assessment.errorPatterns.phonicsPatterns?.finalSoundErrors?.length || 0,
+                    vowelPatterns: assessment.errorPatterns.phonicsPatterns?.vowelPatterns?.length || 0,
+                    consonantBlends: assessment.errorPatterns.phonicsPatterns?.consonantBlends?.length || 0
+                }
+            } : null,
+
+            // Word list (if available)
+            wordList: assessment.wordList || assessment.expectedWords || []
+        };
+    });
+
+    // Calculate aggregate statistics
+    const stats = FirebaseDB.getStudentStats(student);
+    const firstDate = new Date(sortedAssessments[0].date);
+    const lastDate = new Date(sortedAssessments[sortedAssessments.length - 1].date);
+    const daySpan = Math.ceil((lastDate - firstDate) / 86400000) + 1;
+
+    // Build comprehensive export
+    const exportData = {
+        // Metadata
+        meta: {
+            exportVersion: '1.0',
+            exportDate: new Date().toISOString(),
+            exportTimestamp: Date.now(),
+            source: 'Word Analyzer V2',
+            buildVersion: BUILD_TIMESTAMP
+        },
+
+        // Student info
+        student: {
+            name: student.name,
+            grade: student.grade || 'Not set',
+            id: studentId
+        },
+
+        // Summary statistics
+        summary: {
+            totalAssessments: student.assessments.length,
+            dateRange: {
+                first: firstDate.toISOString().slice(0, 10),
+                last: lastDate.toISOString().slice(0, 10),
+                daySpan: daySpan
+            },
+            averages: {
+                accuracy: stats.avgAccuracy,
+                wpm: stats.avgWpm,
+                prosody: stats.avgProsody
+            }
+        },
+
+        // All assessments data
+        assessments: assessmentsData
+    };
+
+    // Generate filename
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const safeName = student.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    const filename = `student-data-${safeName}-${assessmentsData.length}assessments-${dateStr}.json`;
+
+    // Download as JSON
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    debugLog('All student data exported:', filename, `(${assessmentsData.length} assessments)`);
+}
+
 // ============ PDF GENERATION ============
 function downloadAnalysisAsHtml2Pdf() {
     if (!state.latestAnalysis || !state.latestExpectedWords) {
@@ -3150,6 +3314,15 @@ if (deleteStudentBtn) {
             await window.renderStudentsGridAsync();
             showSection('class-overview');
         }
+    });
+}
+
+// Export all student data button
+const exportStudentDataBtn = document.getElementById('export-student-data-btn');
+if (exportStudentDataBtn) {
+    exportStudentDataBtn.addEventListener('click', async () => {
+        if (!state.currentStudentId) return;
+        await exportAllStudentData(state.currentStudentId);
     });
 }
 
