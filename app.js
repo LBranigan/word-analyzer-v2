@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-05 10:35';
+const BUILD_TIMESTAMP = '2025-12-05 13:22';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2007,6 +2007,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                 <button id="generate-video-btn" class="btn btn-export">🎬 Video</button>
                 <button id="view-patterns-btn" class="btn btn-export">📊 Patterns</button>
                 <button id="export-words-btn" class="btn btn-export">📋 Export Words</button>
+                <button id="export-data-btn" class="btn btn-export">📊 Export Data</button>
             </div>
             <div id="video-generation-status" class="video-status"></div>
 
@@ -2040,6 +2041,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     document.getElementById('generate-video-btn')?.addEventListener('click', generateTranscriptVideo);
     document.getElementById('view-patterns-btn')?.addEventListener('click', viewDetailedPatterns);
     document.getElementById('export-words-btn')?.addEventListener('click', exportSelectedWords);
+    document.getElementById('export-data-btn')?.addEventListener('click', exportAssessmentData);
 
     // Add click handlers for error words to show popup
     const wordPopup = document.getElementById('word-popup');
@@ -2156,6 +2158,170 @@ ${selectedWordTexts.map((word, i) => `${i + 1}. ${word}`).join('\n')}
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+// ============ EXPORT ASSESSMENT DATA (for Standard Celeration Chart) ============
+function exportAssessmentData() {
+    if (!state.latestAnalysis) {
+        alert('No analysis data available. Please run an analysis first.');
+        return;
+    }
+
+    const analysis = state.latestAnalysis;
+    const prosodyMetrics = state.latestProsodyMetrics || {};
+    const errorPatterns = state.latestErrorPatterns || {};
+    const expectedWords = state.latestExpectedWords || [];
+    const spokenWords = state.latestSpokenWords || [];
+
+    // Calculate all error counts
+    const skippedCount = analysis.errors?.skippedWords?.length || 0;
+    const misreadCount = analysis.errors?.misreadWords?.length || 0;
+    const substitutedCount = analysis.errors?.substitutedWords?.length || 0;
+    const hesitationCount = Array.isArray(analysis.errors?.hesitations)
+        ? analysis.errors.hesitations.length
+        : (analysis.errors?.hesitations || 0);
+    const repeatedCount = Array.isArray(analysis.errors?.repeatedWords)
+        ? analysis.errors.repeatedWords.length
+        : (analysis.errors?.repeatedWords || 0);
+    const totalErrors = skippedCount + misreadCount + substitutedCount;
+
+    // Core metrics
+    const totalWords = expectedWords.length || state.selectedWords?.size || 0;
+    const correctCount = analysis.correctCount || 0;
+    const accuracy = totalWords > 0 ? (correctCount / totalWords) * 100 : 0;
+    const wpm = prosodyMetrics.wpm || 0;
+    const readingTimeSeconds = prosodyMetrics.readingTime || state.recordingDuration || 0;
+    const readingTimeMinutes = readingTimeSeconds / 60;
+
+    // Calculate count per minute for Standard Celeration Chart
+    const correctPerMinute = readingTimeMinutes > 0 ? correctCount / readingTimeMinutes : 0;
+    const errorsPerMinute = readingTimeMinutes > 0 ? totalErrors / readingTimeMinutes : 0;
+
+    // Build comprehensive data package
+    const exportData = {
+        // Metadata
+        meta: {
+            exportVersion: '1.0',
+            exportDate: new Date().toISOString(),
+            exportTimestamp: Date.now(),
+            source: 'Word Analyzer V2',
+            buildVersion: BUILD_TIMESTAMP
+        },
+
+        // Standard Celeration Chart ready data
+        celeration: {
+            date: new Date().toISOString().slice(0, 10),
+            calendarDay: Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1)) / 86400000) + 1,
+            countingTimeSec: readingTimeSeconds,
+            countingTimeMin: readingTimeMinutes,
+            correctCount: correctCount,
+            errorCount: totalErrors,
+            correctPerMinute: Math.round(correctPerMinute * 100) / 100,
+            errorsPerMinute: Math.round(errorsPerMinute * 100) / 100
+        },
+
+        // Core performance metrics
+        performance: {
+            totalWords: totalWords,
+            wordsRead: prosodyMetrics.wordsRead || (correctCount + misreadCount),
+            correctCount: correctCount,
+            accuracy: Math.round(accuracy * 100) / 100,
+            accuracyDecimal: Math.round(accuracy) / 100,
+            wpm: wpm,
+            readingTimeSeconds: Math.round(readingTimeSeconds * 100) / 100
+        },
+
+        // Prosody/fluency metrics
+        prosody: {
+            score: prosodyMetrics.prosodyScore || 0,
+            grade: prosodyMetrics.prosodyGrade || 'N/A',
+            totalWords: prosodyMetrics.totalWords || totalWords,
+            wordsRead: prosodyMetrics.wordsRead || 0
+        },
+
+        // Error breakdown
+        errors: {
+            total: totalErrors,
+            skipped: skippedCount,
+            misread: misreadCount,
+            substituted: substitutedCount,
+            hesitations: hesitationCount,
+            repeated: repeatedCount,
+            // Detailed error lists
+            skippedWords: analysis.errors?.skippedWords || [],
+            misreadWords: (analysis.errors?.misreadWords || []).map(e => ({
+                expected: e.expected,
+                spoken: e.spoken,
+                index: e.index
+            })),
+            substitutedWords: (analysis.errors?.substitutedWords || []).map(e => ({
+                expected: e.expected,
+                spoken: e.spoken,
+                index: e.index
+            }))
+        },
+
+        // Error pattern analysis
+        patterns: {
+            severity: errorPatterns.summary?.severity || 'unknown',
+            primaryIssues: errorPatterns.summary?.primaryIssues || [],
+            phonics: {
+                initialSoundErrors: errorPatterns.phonicsPatterns?.initialSoundErrors?.length || 0,
+                finalSoundErrors: errorPatterns.phonicsPatterns?.finalSoundErrors?.length || 0,
+                vowelPatterns: errorPatterns.phonicsPatterns?.vowelPatterns?.length || 0,
+                consonantBlends: errorPatterns.phonicsPatterns?.consonantBlends?.length || 0,
+                silentLetters: errorPatterns.phonicsPatterns?.silentLetters?.length || 0,
+                rControlledVowels: errorPatterns.phonicsPatterns?.rControlledVowels?.length || 0,
+                digraphs: errorPatterns.phonicsPatterns?.digraphs?.length || 0
+            },
+            readingStrategies: {
+                firstLetterGuessing: errorPatterns.readingStrategies?.firstLetterGuessing?.length || 0,
+                visualGuessing: errorPatterns.readingStrategies?.visualGuessing?.length || 0,
+                contextGuessing: errorPatterns.readingStrategies?.contextGuessing?.length || 0
+            },
+            speechPatterns: {
+                rSoundIssues: errorPatterns.speechPatterns?.rSoundIssues?.length || 0,
+                thSoundIssues: errorPatterns.speechPatterns?.thSoundIssues?.length || 0,
+                lSoundIssues: errorPatterns.speechPatterns?.lSoundIssues?.length || 0
+            },
+            visualSimilarityErrors: errorPatterns.visualSimilarityErrors?.length || 0,
+            morphologicalErrors: errorPatterns.morphologicalErrors?.length || 0
+        },
+
+        // Word lists for reference
+        words: {
+            expected: expectedWords,
+            spoken: spokenWords.map(w => typeof w === 'object' ? w.word : w)
+        },
+
+        // Aligned word pairs with timing (if available)
+        alignment: (analysis.aligned || []).map((item, idx) => ({
+            index: idx,
+            expected: item.expected,
+            spoken: item.spoken,
+            status: item.status,
+            confidence: item.confidence || null,
+            startTime: item.startTime || null,
+            endTime: item.endTime || null
+        }))
+    };
+
+    // Generate filename with date and key metrics
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `assessment-data-${dateStr}-${Math.round(accuracy)}pct-${wpm}wpm.json`;
+
+    // Download as JSON
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    debugLog('Assessment data exported:', filename);
 }
 
 // ============ PDF GENERATION ============
