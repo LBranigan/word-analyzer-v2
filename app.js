@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-03 16:05';
+const BUILD_TIMESTAMP = '2025-12-05 08:51';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2640,8 +2640,39 @@ async function viewHistoricalAssessment(studentId, assessmentId) {
         // Load historical data into state
         state.latestExpectedWords = assessment.expectedWords;
         state.latestSpokenWords = assessment.spokenWords || [];
-        state.latestProsodyMetrics = assessment.prosodyMetrics || { wpm: assessment.wpm, prosodyScore: assessment.prosodyScore };
-        state.latestAnalysis = { aligned: assessment.aligned, errors: assessment.errors, correctCount: assessment.correctCount };
+
+        // Ensure prosodyMetrics has all required fields including prosodyGrade
+        let prosodyMetrics = assessment.prosodyMetrics;
+        if (!prosodyMetrics) {
+            const score = assessment.prosodyScore || 0;
+            prosodyMetrics = {
+                wpm: assessment.wpm || 0,
+                prosodyScore: score,
+                prosodyGrade: score >= 3.8 ? 'Excellent' : score >= 3.0 ? 'Proficient' : score >= 2.0 ? 'Developing' : 'Needs Support'
+            };
+        } else if (!prosodyMetrics.prosodyGrade) {
+            const score = prosodyMetrics.prosodyScore || 0;
+            prosodyMetrics.prosodyGrade = score >= 3.8 ? 'Excellent' : score >= 3.0 ? 'Proficient' : score >= 2.0 ? 'Developing' : 'Needs Support';
+        }
+        state.latestProsodyMetrics = prosodyMetrics;
+
+        // Normalize errors object - historical assessments may have stored hesitations/repeatedWords as counts (numbers)
+        // but displayPronunciationResults expects them to be arrays
+        const normalizedErrors = { ...assessment.errors };
+        if (typeof normalizedErrors.hesitations === 'number') {
+            normalizedErrors.hesitations = [];
+        }
+        if (typeof normalizedErrors.repeatedWords === 'number') {
+            normalizedErrors.repeatedWords = [];
+        }
+        // Ensure all error arrays exist
+        normalizedErrors.skippedWords = normalizedErrors.skippedWords || [];
+        normalizedErrors.misreadWords = normalizedErrors.misreadWords || [];
+        normalizedErrors.substitutedWords = normalizedErrors.substitutedWords || [];
+        normalizedErrors.hesitations = normalizedErrors.hesitations || [];
+        normalizedErrors.repeatedWords = normalizedErrors.repeatedWords || [];
+
+        state.latestAnalysis = { aligned: assessment.aligned, errors: normalizedErrors, correctCount: assessment.correctCount };
         state.latestErrorPatterns = assessment.errorPatterns || null;
         state.viewingHistoricalAssessment = true;
         state.historicalAssessmentStudentId = studentId;
