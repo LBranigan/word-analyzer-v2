@@ -100,9 +100,20 @@ export async function generateVideo(state, statusDiv, generateBtn) {
             // Clean up audio context
             audioContext.close();
 
-            // Create download link
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-            const filename = `reading-comprehension-video-${timestamp}.webm`;
+            // Create download link with naming convention: [Name] - [PRF] - [date and time]
+            const studentName = document.getElementById('current-student-name')?.textContent || 'Unknown';
+            const prf = state.latestProsodyMetrics?.wpm || 0;
+            const now = new Date();
+            const dateTime = now.toLocaleString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).replace(/[/:]/g, '-').replace(', ', '_');
+            const safeName = studentName.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+            const filename = `${safeName} - ${prf} - ${dateTime}.webm`;
 
             statusDiv.innerHTML = `
                 <div class="video-complete">
