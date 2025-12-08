@@ -6,6 +6,60 @@
 import { debugLog, debugError } from '../utils.js';
 
 /**
+ * Detect the best supported video MIME type for the current browser
+ * Safari/iOS requires MP4 with H.264, Chrome/Firefox prefer WebM with VP9
+ * @returns {Object} Object with mimeType, extension, and blobType
+ */
+function getSupportedVideoFormat() {
+    const formats = [
+        // MP4 with H.264/AAC - Safari/iOS compatible
+        { mimeType: 'video/mp4;codecs=h264,aac', extension: 'mp4', blobType: 'video/mp4' },
+        { mimeType: 'video/mp4;codecs=avc1,mp4a', extension: 'mp4', blobType: 'video/mp4' },
+        { mimeType: 'video/mp4', extension: 'mp4', blobType: 'video/mp4' },
+        // WebM with VP9 - Chrome/Firefox preferred
+        { mimeType: 'video/webm;codecs=vp9,opus', extension: 'webm', blobType: 'video/webm' },
+        { mimeType: 'video/webm;codecs=vp8,opus', extension: 'webm', blobType: 'video/webm' },
+        { mimeType: 'video/webm;codecs=vp9', extension: 'webm', blobType: 'video/webm' },
+        { mimeType: 'video/webm;codecs=vp8', extension: 'webm', blobType: 'video/webm' },
+        { mimeType: 'video/webm', extension: 'webm', blobType: 'video/webm' }
+    ];
+
+    for (const format of formats) {
+        if (MediaRecorder.isTypeSupported(format.mimeType)) {
+            debugLog(`Video format selected: ${format.mimeType}`);
+            return format;
+        }
+    }
+
+    // Fallback - let browser choose
+    debugLog('No specific format supported, using browser default');
+    return { mimeType: '', extension: 'webm', blobType: 'video/webm' };
+}
+
+/**
+ * Check if the current device supports video recording
+ * @returns {Object} Object with supported boolean and message
+ */
+function checkVideoSupport() {
+    if (typeof MediaRecorder === 'undefined') {
+        return {
+            supported: false,
+            message: 'Video recording is not supported on this browser. Please use Chrome, Firefox, or Safari 14.1+.'
+        };
+    }
+
+    const format = getSupportedVideoFormat();
+    if (!format.mimeType && !MediaRecorder.isTypeSupported('video/webm')) {
+        return {
+            supported: false,
+            message: 'No supported video format found on this device. Video generation requires a modern browser.'
+        };
+    }
+
+    return { supported: true, format };
+}
+
+/**
  * Generate transcript video from analysis data
  * @param {Object} state - Application state containing analysis data
  * @param {HTMLElement} statusDiv - Status display element
@@ -29,10 +83,20 @@ export async function generateVideo(state, statusDiv, generateBtn) {
     // Store original button text to restore later
     const originalButtonText = generateBtn.innerHTML;
 
+    // Check if video recording is supported on this device
+    const supportCheck = checkVideoSupport();
+    if (!supportCheck.supported) {
+        statusDiv.innerHTML = `<div class="error">⚠️ ${supportCheck.message}</div>`;
+        statusDiv.style.display = 'block';
+        return;
+    }
+
+    const videoFormat = supportCheck.format;
+
     try {
         generateBtn.disabled = true;
         generateBtn.innerHTML = '⏳ Generating...';
-        statusDiv.innerHTML = '<div class="video-progress">🎬 Generating video... Please wait</div>';
+        statusDiv.innerHTML = `<div class="video-progress">🎬 Generating video (${videoFormat.extension.toUpperCase()})... Please wait</div>`;
         statusDiv.style.display = 'block';
 
         const analysis = state.latestAnalysis;
@@ -80,11 +144,18 @@ export async function generateVideo(state, statusDiv, generateBtn) {
             ...audioDestination.stream.getAudioTracks()
         ]);
 
-        const mediaRecorder = new MediaRecorder(combinedStream, {
-            mimeType: 'video/webm;codecs=vp9,opus',
+        // Configure MediaRecorder with detected format
+        const recorderOptions = {
             videoBitsPerSecond: 2500000,
             audioBitsPerSecond: 128000
-        });
+        };
+
+        // Only set mimeType if we have a specific supported format
+        if (videoFormat.mimeType) {
+            recorderOptions.mimeType = videoFormat.mimeType;
+        }
+
+        const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
 
         const chunks = [];
         mediaRecorder.ondataavailable = (e) => {
@@ -94,8 +165,7 @@ export async function generateVideo(state, statusDiv, generateBtn) {
         };
 
         mediaRecorder.onstop = async () => {
-            const videoBlob = new Blob(chunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(videoBlob);
+            const videoBlob = new Blob(chunks, { type: videoFormat.blobType });
 
             // Clean up audio context
             audioContext.close();
@@ -113,19 +183,39 @@ export async function generateVideo(state, statusDiv, generateBtn) {
                 hour12: false
             }).replace(/[/:]/g, '-').replace(', ', '_');
             const safeName = studentName.replace(/[^a-zA-Z0-9\s]/g, '').trim();
-            const filename = `${safeName} - ${prf} - ${dateTime}.webm`;
+            const filename = `${safeName} - ${prf} - ${dateTime}.${videoFormat.extension}`;
+
+            // Store blob reference for download button
+            let videoBlobRef = videoBlob;
 
             statusDiv.innerHTML = `
                 <div class="video-complete">
                     ✅ Video generated successfully!
-                    <a href="${url}" download="${filename}" class="btn btn-primary" style="margin-left: 10px;">
+                    <button id="download-video-btn" class="btn btn-primary" style="margin-left: 10px;">
                         💾 Download Video
-                    </a>
+                    </button>
                 </div>
             `;
 
-            // Revoke blob URL after 60 seconds to free memory (user should have downloaded by then)
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            // Use programmatic download approach (more reliable than <a download> for blobs)
+            document.getElementById('download-video-btn').addEventListener('click', () => {
+                if (!videoBlobRef) {
+                    alert('Video is no longer available. Please generate a new video.');
+                    return;
+                }
+                const url = URL.createObjectURL(videoBlobRef);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                // Revoke URL after a short delay to ensure download starts
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+
+            // Clear blob reference after 5 minutes to free memory
+            setTimeout(() => { videoBlobRef = null; }, 300000);
 
             generateBtn.innerHTML = originalButtonText;
             generateBtn.disabled = false;

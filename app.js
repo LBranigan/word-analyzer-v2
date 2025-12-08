@@ -2005,6 +2005,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
             <div class="export-buttons">
                 <button id="download-pdf-btn" class="btn btn-export">📄 PDF</button>
                 <button id="generate-video-btn" class="btn btn-export">🎬 Video</button>
+                <button id="view-image-btn" class="btn btn-export">🖼️ Image</button>
                 <button id="view-patterns-btn" class="btn btn-export">📊 Patterns</button>
                 <button id="export-words-btn" class="btn btn-export">📋 Export Words</button>
                 <button id="export-data-btn" class="btn btn-export">📊 Export Data</button>
@@ -2039,6 +2040,7 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
     // Attach event listeners
     document.getElementById('download-pdf-btn')?.addEventListener('click', downloadAnalysisAsHtml2Pdf);
     document.getElementById('generate-video-btn')?.addEventListener('click', generateTranscriptVideo);
+    document.getElementById('view-image-btn')?.addEventListener('click', viewHighlightedImage);
     document.getElementById('view-patterns-btn')?.addEventListener('click', viewDetailedPatterns);
     document.getElementById('export-words-btn')?.addEventListener('click', exportSelectedWords);
     document.getElementById('export-data-btn')?.addEventListener('click', exportAssessmentData);
@@ -2622,6 +2624,102 @@ function downloadAnalysisAsHtml2Pdf() {
                 alert('Failed to generate PDF: ' + err.message);
             });
     }, 200);
+}
+
+// ============ VIEW HIGHLIGHTED IMAGE ============
+function viewHighlightedImage() {
+    if (!state.capturedImage) {
+        alert('No captured image available. This may be a historical assessment without image data.');
+        return;
+    }
+
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'image-modal-overlay';
+    modal.innerHTML = `
+        <div class="image-modal-content">
+            <div class="image-modal-header">
+                <h3>Captured Text with Highlighted Words</h3>
+                <button type="button" class="image-modal-close">&times;</button>
+            </div>
+            <div class="image-modal-body">
+                <canvas id="highlighted-image-canvas"></canvas>
+            </div>
+            <div class="image-modal-footer">
+                <button type="button" class="btn btn-primary" id="download-highlighted-image-btn">
+                    💾 Download Image
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Draw image with highlights on the modal canvas
+    const canvas = document.getElementById('highlighted-image-canvas');
+    const ctx = canvas.getContext('2d');
+
+    imageCache.load(state.capturedImage).then(img => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw the base image
+        ctx.drawImage(img, 0, 0);
+
+        // Draw word highlights
+        if (state.ocrData && state.ocrData.words) {
+            state.ocrData.words.forEach((word, index) => {
+                const { x0, y0, x1, y1 } = word.bbox;
+
+                if (state.selectedWords.has(index)) {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+                    ctx.strokeStyle = 'rgba(255, 200, 0, 0.9)';
+                    ctx.lineWidth = 3;
+                } else {
+                    ctx.strokeStyle = 'rgba(26, 83, 92, 0.3)';
+                    ctx.lineWidth = 1;
+                }
+                ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+            });
+        }
+    });
+
+    // Close modal on X button or backdrop click
+    modal.querySelector('.image-modal-close').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Download button
+    document.getElementById('download-highlighted-image-btn').addEventListener('click', () => {
+        const studentName = document.getElementById('current-student-name')?.textContent || 'Unknown';
+        const now = new Date();
+        const dateTime = now.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).replace(/[/:]/g, '-').replace(', ', '_');
+        const safeName = studentName.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+        const filename = `${safeName} - highlighted - ${dateTime}.png`;
+
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 'image/png');
+    });
 }
 
 // ============ VIDEO GENERATION ============
@@ -3550,6 +3648,18 @@ styleSheet.textContent = `
     .info-box { background: #e0f2fe; padding: var(--space-lg); border-radius: var(--radius-md); margin: var(--space-lg) 0; border-left: 4px solid #0284c7; }
     .info-box p { margin: 0 0 var(--space-sm) 0; }
     .info-box p:last-child { margin-bottom: 0; }
+
+    /* Image modal styles */
+    .image-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; animation: modalFadeIn 0.2s ease-out; }
+    @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .image-modal-content { background: white; border-radius: var(--radius-lg, 16px); max-width: 95vw; max-height: 95vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.4); }
+    .image-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+    .image-modal-header h3 { margin: 0; font-size: 1.1rem; color: #1a535c; }
+    .image-modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; padding: 0 8px; line-height: 1; transition: color 0.2s; }
+    .image-modal-close:hover { color: #ef4444; }
+    .image-modal-body { flex: 1; overflow: auto; padding: 20px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; }
+    .image-modal-body canvas { max-width: 100%; max-height: 70vh; object-fit: contain; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 4px; }
+    .image-modal-footer { padding: 16px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: center; gap: 12px; background: #f9fafb; }
 `;
 document.head.appendChild(styleSheet);
 
