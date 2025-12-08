@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 14:35';
+const BUILD_TIMESTAMP = '2025-12-08 15:27';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -1955,30 +1955,35 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
             hesitationsByPosition.get(idx).forEach(h => {
                 const hesType = h.type === 'filler' ? 'Filler word' : 'Pause';
                 const hesWord = escapeHtml(h.word || '...');
-                wordsHtml += `<span class="word-hesitation word-clickable" data-status="hesitation" data-type="${h.type}" data-word="${hesWord}">[${hesWord}]<span class="error-badge">hesitation</span></span> `;
+                // Get hesitation timing from spokenWordInfo
+                const hesitationWord = spokenWordInfo[h.spokenIndex];
+                const hesStartTime = hesitationWord?.startTime || '';
+                const hesEndTime = hesitationWord?.endTime || '';
+                wordsHtml += `<span class="word-hesitation word-clickable" data-status="hesitation" data-type="${h.type}" data-word="${hesWord}" data-start-time="${hesStartTime}" data-end-time="${hesEndTime}">[${hesWord}]<span class="error-badge">hesitation</span></span> `;
             });
         }
 
         const safeWord = escapeHtml(item.expected);
         const safeSpoken = item.spoken ? escapeHtml(item.spoken) : '';
-        let className = 'word-correct';
+        const startTime = item.startTime || '';
+        const endTime = item.endTime || '';
+        let className = 'word-correct word-clickable';
         let errorLabel = '';
-        let dataAttrs = '';
+        let dataAttrs = `data-status="${item.status}" data-expected="${safeWord}" data-start-time="${startTime}" data-end-time="${endTime}"`;
 
         if (item.status === 'skipped') {
             className = 'word-skipped word-clickable';
             errorLabel = '<span class="error-badge">skipped</span>';
-            dataAttrs = `data-status="skipped" data-expected="${safeWord}"`;
         }
         else if (item.status === 'misread') {
             className = 'word-misread word-clickable';
             errorLabel = '<span class="error-badge">misread</span>';
-            dataAttrs = `data-status="misread" data-expected="${safeWord}" data-spoken="${safeSpoken}"`;
+            dataAttrs += ` data-spoken="${safeSpoken}"`;
         }
         else if (item.status === 'substituted') {
             className = 'word-substituted word-clickable';
             errorLabel = '<span class="error-badge">substituted</span>';
-            dataAttrs = `data-status="substituted" data-expected="${safeWord}" data-spoken="${safeSpoken}"`;
+            dataAttrs += ` data-spoken="${safeSpoken}"`;
         }
 
         wordsHtml += `<span class="${className}" ${dataAttrs}>${safeWord}${errorLabel}</span> `;
@@ -2056,6 +2061,14 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
             const status = wordEl.dataset.status;
             const expected = wordEl.dataset.expected;
             const spoken = wordEl.dataset.spoken || '';
+            const startTime = wordEl.dataset.startTime || '';
+            const endTime = wordEl.dataset.endTime || '';
+
+            // Check if audio playback is available for this word
+            const hasAudio = state.recordedAudioBlob && startTime && endTime && status !== 'skipped';
+            const playButton = hasAudio
+                ? `<button type="button" class="popup-play-btn" data-start="${startTime}" data-end="${endTime}">🔊 Play Audio</button>`
+                : (status === 'skipped' ? '' : '<div class="popup-hint popup-no-audio">Audio not available</div>');
 
             let popupContent = '';
             if (status === 'skipped') {
@@ -2065,11 +2078,13 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
             } else if (status === 'misread') {
                 popupContent = `<div class="popup-title">Misread Word</div>
                     <div class="popup-row"><span class="popup-label">Expected:</span> <span class="popup-value">"${expected}"</span></div>
-                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-misread">"${spoken}"</span></div>`;
+                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-misread">"${spoken}"</span></div>
+                    ${playButton}`;
             } else if (status === 'substituted') {
                 popupContent = `<div class="popup-title">Substituted Word</div>
                     <div class="popup-row"><span class="popup-label">Expected:</span> <span class="popup-value">"${expected}"</span></div>
-                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-substituted">"${spoken}"</span></div>`;
+                    <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-substituted">"${spoken}"</span></div>
+                    ${playButton}`;
             } else if (status === 'hesitation') {
                 const hesType = wordEl.dataset.type;
                 const hesWord = wordEl.dataset.word;
@@ -2077,11 +2092,36 @@ function displayPronunciationResults(expectedWords, spokenWordInfo, analysis, pr
                 popupContent = `<div class="popup-title">Hesitation</div>
                     <div class="popup-row"><span class="popup-label">Type:</span> <span class="popup-value">${typeLabel}</span></div>
                     <div class="popup-row"><span class="popup-label">Spoken:</span> <span class="popup-value popup-hesitation">"${hesWord}"</span></div>
-                    <div class="popup-hint">Indicates uncertainty or pause in fluency</div>`;
+                    <div class="popup-hint">Indicates uncertainty or pause in fluency</div>
+                    ${playButton}`;
+            } else if (status === 'correct') {
+                popupContent = `<div class="popup-title">Correct</div>
+                    <div class="popup-row"><span class="popup-label">Word:</span> <span class="popup-value">"${expected}"</span></div>
+                    ${playButton}`;
             }
 
             wordPopup.innerHTML = popupContent;
             wordPopup.classList.remove('hidden');
+
+            // Attach play button listener if present
+            const playBtn = wordPopup.querySelector('.popup-play-btn');
+            if (playBtn) {
+                playBtn.addEventListener('click', async (evt) => {
+                    evt.stopPropagation();
+                    const start = playBtn.dataset.start;
+                    const end = playBtn.dataset.end;
+                    playBtn.disabled = true;
+                    playBtn.textContent = '🔊 Playing...';
+                    const success = await playWordAudio(start, end);
+                    if (!success) {
+                        playBtn.textContent = '❌ Failed';
+                    }
+                    setTimeout(() => {
+                        playBtn.disabled = false;
+                        playBtn.textContent = '🔊 Play Audio';
+                    }, 1000);
+                });
+            }
 
             // Position popup near the clicked word
             const rect = wordEl.getBoundingClientRect();
@@ -2626,6 +2666,92 @@ function downloadAnalysisAsHtml2Pdf() {
     }, 200);
 }
 
+// ============ WORD AUDIO PLAYBACK ============
+let wordAudioContext = null;
+let wordAudioSource = null;
+
+async function playWordAudio(startTimeStr, endTimeStr) {
+    if (!state.recordedAudioBlob) {
+        debugLog('No recorded audio blob available for word playback');
+        return false;
+    }
+
+    if (!startTimeStr || !endTimeStr) {
+        debugLog('No timing data available for this word');
+        return false;
+    }
+
+    // Parse timing strings (format: "1.234s" or "1.234")
+    const startTime = parseFloat(startTimeStr.replace('s', ''));
+    const endTime = parseFloat(endTimeStr.replace('s', ''));
+
+    if (isNaN(startTime) || isNaN(endTime)) {
+        debugLog('Invalid timing data:', startTimeStr, endTimeStr);
+        return false;
+    }
+
+    try {
+        // Stop any currently playing word audio
+        if (wordAudioSource) {
+            wordAudioSource.stop();
+            wordAudioSource = null;
+        }
+
+        // Create or reuse audio context
+        if (!wordAudioContext || wordAudioContext.state === 'closed') {
+            wordAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Resume context if suspended (required for user gesture on some browsers)
+        if (wordAudioContext.state === 'suspended') {
+            await wordAudioContext.resume();
+        }
+
+        // Decode the audio blob
+        const arrayBuffer = await state.recordedAudioBlob.arrayBuffer();
+        const audioBuffer = await wordAudioContext.decodeAudioData(arrayBuffer);
+
+        // Calculate sample positions
+        const sampleRate = audioBuffer.sampleRate;
+        const startSample = Math.floor(startTime * sampleRate);
+        const endSample = Math.min(Math.floor(endTime * sampleRate), audioBuffer.length);
+        const duration = endSample - startSample;
+
+        if (duration <= 0) {
+            debugLog('Invalid audio segment duration');
+            return false;
+        }
+
+        // Create a new buffer for the segment
+        const segmentBuffer = wordAudioContext.createBuffer(
+            audioBuffer.numberOfChannels,
+            duration,
+            sampleRate
+        );
+
+        // Copy the segment data
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+            const sourceData = audioBuffer.getChannelData(channel);
+            const destData = segmentBuffer.getChannelData(channel);
+            for (let i = 0; i < duration; i++) {
+                destData[i] = sourceData[startSample + i];
+            }
+        }
+
+        // Create source and play
+        wordAudioSource = wordAudioContext.createBufferSource();
+        wordAudioSource.buffer = segmentBuffer;
+        wordAudioSource.connect(wordAudioContext.destination);
+        wordAudioSource.start();
+
+        debugLog('Playing word audio from', startTime, 'to', endTime);
+        return true;
+    } catch (err) {
+        debugLog('Error playing word audio:', err);
+        return false;
+    }
+}
+
 // ============ VIEW HIGHLIGHTED IMAGE ============
 function viewHighlightedImage() {
     if (!state.capturedImage) {
@@ -2665,22 +2791,52 @@ function viewHighlightedImage() {
         // Draw the base image
         ctx.drawImage(img, 0, 0);
 
-        // Draw word highlights
-        if (state.ocrData && state.ocrData.words) {
-            state.ocrData.words.forEach((word, index) => {
-                const { x0, y0, x1, y1 } = word.bbox;
+        // Draw yellow brackets at start of first word and end of last word
+        if (state.ocrData && state.ocrData.words && state.selectedWords.size > 0) {
+            // Find first and last selected word indices
+            const selectedIndices = Array.from(state.selectedWords).sort((a, b) => a - b);
+            const firstIndex = selectedIndices[0];
+            const lastIndex = selectedIndices[selectedIndices.length - 1];
 
-                if (state.selectedWords.has(index)) {
-                    ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-                    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-                    ctx.strokeStyle = 'rgba(255, 200, 0, 0.9)';
-                    ctx.lineWidth = 3;
-                } else {
-                    ctx.strokeStyle = 'rgba(26, 83, 92, 0.3)';
-                    ctx.lineWidth = 1;
-                }
-                ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-            });
+            const firstWord = state.ocrData.words[firstIndex];
+            const lastWord = state.ocrData.words[lastIndex];
+
+            if (firstWord && lastWord) {
+                ctx.strokeStyle = 'rgba(255, 200, 0, 1)';
+                ctx.fillStyle = 'rgba(255, 200, 0, 1)';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                const bracketWidth = 15;
+                const padding = 5;
+
+                // Draw opening bracket [ before first word
+                const f = firstWord.bbox;
+                const fLeft = f.x0 - padding;
+                const fTop = f.y0 - padding;
+                const fBottom = f.y1 + padding;
+
+                ctx.beginPath();
+                ctx.moveTo(fLeft + bracketWidth, fTop);
+                ctx.lineTo(fLeft, fTop);
+                ctx.lineTo(fLeft, fBottom);
+                ctx.lineTo(fLeft + bracketWidth, fBottom);
+                ctx.stroke();
+
+                // Draw closing bracket ] after last word
+                const l = lastWord.bbox;
+                const lRight = l.x1 + padding;
+                const lTop = l.y0 - padding;
+                const lBottom = l.y1 + padding;
+
+                ctx.beginPath();
+                ctx.moveTo(lRight - bracketWidth, lTop);
+                ctx.lineTo(lRight, lTop);
+                ctx.lineTo(lRight, lBottom);
+                ctx.lineTo(lRight - bracketWidth, lBottom);
+                ctx.stroke();
+            }
         }
     });
 
@@ -3642,6 +3798,11 @@ styleSheet.textContent = `
     .popup-substituted { color: #dc3545; }
     .popup-hesitation { color: #7c3aed; font-style: italic; }
     .popup-hint { font-size: 0.75rem; color: #6b7280; margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px dashed #e5e7eb; font-style: italic; }
+    .popup-play-btn { display: block; width: 100%; margin-top: var(--space-sm); padding: 8px 12px; background: var(--color-primary, #1a535c); color: white; border: none; border-radius: var(--radius-sm, 6px); cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: background 0.2s, transform 0.1s; }
+    .popup-play-btn:hover { background: var(--color-primary-dark, #134147); }
+    .popup-play-btn:active { transform: scale(0.98); }
+    .popup-play-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+    .popup-no-audio { font-size: 0.7rem; color: #9ca3af; text-align: center; }
     .loading-analysis { text-align: center; padding: var(--space-3xl); }
     .loading-analysis .spinner { width: 40px; height: 40px; border: 3px solid var(--color-sand); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto var(--space-lg); }
     @keyframes spin { to { transform: rotate(360deg); } }
