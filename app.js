@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 15:27';
+const BUILD_TIMESTAMP = '2025-12-08 15:46';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2711,10 +2711,13 @@ async function playWordAudio(startTimeStr, endTimeStr) {
         const arrayBuffer = await state.recordedAudioBlob.arrayBuffer();
         const audioBuffer = await wordAudioContext.decodeAudioData(arrayBuffer);
 
-        // Calculate sample positions
+        // Calculate sample positions with 0.5s padding before and after
         const sampleRate = audioBuffer.sampleRate;
-        const startSample = Math.floor(startTime * sampleRate);
-        const endSample = Math.min(Math.floor(endTime * sampleRate), audioBuffer.length);
+        const padding = 0.5; // seconds of extra audio before and after the word
+        const paddedStartTime = Math.max(0, startTime - padding);
+        const paddedEndTime = endTime + padding;
+        const startSample = Math.floor(paddedStartTime * sampleRate);
+        const endSample = Math.min(Math.floor(paddedEndTime * sampleRate), audioBuffer.length);
         const duration = endSample - startSample;
 
         if (duration <= 0) {
