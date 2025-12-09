@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 20:48';
+const BUILD_TIMESTAMP = '2025-12-08 21:34';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -258,9 +258,6 @@ window.addEventListener('openApiSettings', () => showSection('setup'));
 
 // ============ AUDIO RECORDING ============
 const recordBtn = document.getElementById('record-audio-btn');
-const audioModal = document.getElementById('audio-modal');
-const startRecordingBtn = document.getElementById('start-recording-btn');
-const cancelRecordingBtn = document.getElementById('cancel-recording-btn');
 const stopRecordingBtn = document.getElementById('stop-recording-btn');
 const recordingVisual = document.getElementById('recording-visual');
 const recordingActive = document.getElementById('recording-active');
@@ -272,18 +269,57 @@ const skipAudioBtn = document.getElementById('skip-audio-btn');
 const nextToCaptureBtn = document.getElementById('next-to-capture-btn');
 const recordingTimer = document.getElementById('recording-timer');
 const timerBar = document.getElementById('timer-bar');
+const audioOptionsInline = document.getElementById('audio-options-inline');
+
+// Play a beep sound using Web Audio API
+function playBeep(frequency = 880, duration = 0.15, volume = 0.3) {
+    return new Promise((resolve) => {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine';
+        gainNode.gain.value = volume;
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + duration);
+
+        oscillator.onended = () => {
+            audioCtx.close();
+            resolve();
+        };
+    });
+}
+
+// Play countdown beeps (3 short beeps then 1 longer higher beep)
+async function playCountdownBeep() {
+    // Three short beeps
+    for (let i = 0; i < 3; i++) {
+        await playBeep(660, 0.1, 0.25);
+        await new Promise(r => setTimeout(r, 233));
+    }
+    // Final higher beep
+    await playBeep(880, 0.2, 0.3);
+}
 
 if (recordBtn) {
-    recordBtn.addEventListener('click', () => audioModal.classList.add('active'));
-}
+    recordBtn.addEventListener('click', async () => {
+        // Disable button during countdown
+        recordBtn.disabled = true;
+        recordBtn.classList.add('countdown-active');
 
-if (cancelRecordingBtn) {
-    cancelRecordingBtn.addEventListener('click', () => audioModal.classList.remove('active'));
-}
+        // Play countdown beep (1 second total)
+        await playCountdownBeep();
 
-if (startRecordingBtn) {
-    startRecordingBtn.addEventListener('click', async () => {
-        audioModal.classList.remove('active');
+        // Re-enable button
+        recordBtn.disabled = false;
+        recordBtn.classList.remove('countdown-active');
+
+        // Start recording
 
         const durationSelect = document.getElementById('audio-duration');
         const bitrateSelect = document.getElementById('audio-bitrate');
@@ -389,6 +425,9 @@ if (startRecordingBtn) {
             state.mediaRecorder.start(1000);
             state.recordingStartTime = Date.now();
 
+            // Hide inline options during recording
+            if (audioOptionsInline) audioOptionsInline.style.display = 'none';
+
             recordingVisual.style.display = 'none';
             recordingActive.style.display = 'block';
             recordingVisual.classList.add('recording');
@@ -433,6 +472,8 @@ if (rerecordBtn) {
         state.audioBlob = null;
         audioPlayback.style.display = 'none';
         recordingVisual.style.display = 'block';
+        // Show inline options again for re-recording
+        if (audioOptionsInline) audioOptionsInline.style.display = 'flex';
         nextToCaptureBtn.disabled = true;
     });
 }

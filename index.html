@@ -313,6 +313,25 @@
 
                         <!-- Recording Interface -->
                         <div class="recording-card">
+                            <!-- Inline Audio Options -->
+                            <div class="audio-options-inline" id="audio-options-inline">
+                                <div class="audio-option">
+                                    <label for="audio-duration">Duration</label>
+                                    <select id="audio-duration" class="form-select-mini">
+                                        <option value="0.5">30s</option>
+                                        <option value="1" selected>1 min</option>
+                                        <option value="2">2 min</option>
+                                    </select>
+                                </div>
+                                <div class="audio-option">
+                                    <label for="audio-bitrate">Quality</label>
+                                    <select id="audio-bitrate" class="form-select-mini">
+                                        <option value="16000">Low</option>
+                                        <option value="32000" selected>Standard</option>
+                                        <option value="64000">High</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div class="recording-visual" id="recording-visual">
                                 <div class="wave-container">
                                     <div class="wave wave-1"></div>
@@ -639,43 +658,6 @@
         </main>
     </div>
 
-    <!-- Audio Recording Modal -->
-    <div id="audio-modal" class="modal">
-        <div class="modal-backdrop"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Recording Settings</h2>
-                <button type="button" class="modal-close" id="cancel-recording-btn">
-                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="audio-duration">Duration</label>
-                    <select id="audio-duration" class="form-select">
-                        <option value="0.5">30 seconds</option>
-                        <option value="1" selected>1 minute</option>
-                        <option value="2">2 minutes</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="audio-bitrate">Quality</label>
-                    <select id="audio-bitrate" class="form-select">
-                        <option value="16000">Low (16 kbps)</option>
-                        <option value="32000" selected>Standard (32 kbps)</option>
-                        <option value="64000">High (64 kbps)</option>
-                    </select>
-                    <p class="form-hint">Standard quality recommended for best API compatibility</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="start-recording-btn">
-                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
-                    Start Recording
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Add Student Modal -->
     <div id="add-student-modal" class="modal">
