@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 12:12';
+const BUILD_TIMESTAMP = '2025-12-09 12:20';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -155,6 +155,14 @@ function showSection(sectionName, pushHistory = true) {
 
     if (['setup', 'audio', 'camera', 'image', 'results'].includes(sectionName)) {
         updateProgress(sectionName);
+    }
+
+    // Stop camera when moving to results or setup (assessment done or starting over)
+    // Keep camera alive when moving to image section (user might want to retake)
+    if ((sectionName === 'results' || sectionName === 'setup') && state.mediaStream) {
+        debugLog('Stopping camera - moving to', sectionName);
+        state.mediaStream.getTracks().forEach(track => track.stop());
+        state.mediaStream = null;
     }
 
     // Initialize camera when entering camera section
@@ -525,15 +533,28 @@ async function initCamera() {
     cameraCanvas.style.display = 'none';
     if (cameraPreview) cameraPreview.style.display = 'none';
 
-    // Stop any existing stream first
-    if (state.mediaStream) {
-        state.mediaStream.getTracks().forEach(track => track.stop());
-        state.mediaStream = null;
-    }
-    camera.srcObject = null;
-
     // Ensure muted attribute for iOS autoplay reliability
     camera.muted = true;
+
+    // Check if we already have an active stream - reuse it instead of requesting new one
+    // This prevents Chrome iOS from revoking permissions on repeated getUserMedia calls
+    if (state.mediaStream) {
+        const tracks = state.mediaStream.getVideoTracks();
+        const hasActiveTrack = tracks.some(track => track.readyState === 'live');
+
+        if (hasActiveTrack) {
+            debugLog('Reusing existing camera stream');
+            camera.srcObject = state.mediaStream;
+            await camera.play().catch(e => debugLog('Camera play:', e.message));
+            return;
+        } else {
+            // Stream exists but tracks are dead - clean up
+            debugLog('Existing stream dead, requesting new one');
+            state.mediaStream.getTracks().forEach(track => track.stop());
+            state.mediaStream = null;
+            camera.srcObject = null;
+        }
+    }
 
     // Check for camera API support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -667,10 +688,8 @@ if (captureBtn) {
             cameraPreview.style.display = 'block';
         }
 
-        // Stop camera
-        if (state.mediaStream) {
-            state.mediaStream.getTracks().forEach(track => track.stop());
-        }
+        // DON'T stop the camera stream here - keep it alive for retakes
+        // This prevents Chrome iOS from requiring new permission on each capture
 
         // Show success message and scroll to next button on mobile
         showCaptureSuccess();
