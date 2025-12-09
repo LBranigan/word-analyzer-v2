@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 16:26';
+const BUILD_TIMESTAMP = '2025-12-08 16:35';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -3106,14 +3106,15 @@ function viewHighlightedImage() {
             const lastWord = state.ocrData.words[lastIndex];
 
             if (firstWord && lastWord) {
-                ctx.strokeStyle = 'rgba(255, 200, 0, 1)';
-                ctx.fillStyle = 'rgba(255, 200, 0, 1)';
-                ctx.lineWidth = 4;
+                // Green brackets - more noticeable
+                ctx.strokeStyle = 'rgba(34, 197, 94, 1)';
+                ctx.fillStyle = 'rgba(34, 197, 94, 1)';
+                ctx.lineWidth = 6;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
 
-                const bracketWidth = 15;
-                const padding = 5;
+                const bracketWidth = 25;
+                const padding = 8;
 
                 // Draw opening bracket [ before first word
                 const f = firstWord.bbox;
