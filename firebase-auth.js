@@ -15,6 +15,8 @@ const loadingStatus = document.getElementById('loading-status');
 const appContainer = document.getElementById('app-container');
 const googleSignInBtn = document.getElementById('google-sign-in-btn');
 const signOutBtn = document.getElementById('sign-out-btn');
+const switchAccountBtn = document.getElementById('switch-account-btn');
+const useDifferentAccountBtn = document.getElementById('use-different-account-btn');
 const apiSettingsBtn = document.getElementById('api-settings-btn');
 const userPhoto = document.getElementById('user-photo');
 const userName = document.getElementById('user-name');
@@ -28,6 +30,16 @@ function initAuth() {
 
     // Set up Sign-Out button
     signOutBtn.addEventListener('click', handleSignOut);
+
+    // Set up Switch Account button (in user dropdown)
+    if (switchAccountBtn) {
+        switchAccountBtn.addEventListener('click', handleSwitchAccount);
+    }
+
+    // Set up Use Different Account button (on login screen)
+    if (useDifferentAccountBtn) {
+        useDifferentAccountBtn.addEventListener('click', handleUseDifferentAccount);
+    }
 
     // Set up API Settings button
     if (apiSettingsBtn) {
@@ -87,6 +99,11 @@ function updateSignInButtonForReturningUser(user) {
         <span>Continue as ${firstName}</span>
     `;
     googleSignInBtn.classList.add('returning-user');
+
+    // Show "Use different account" link
+    if (useDifferentAccountBtn) {
+        useDifferentAccountBtn.style.display = 'block';
+    }
 }
 
 // Reset sign-in button to default
@@ -102,6 +119,11 @@ function resetSignInButton() {
     `;
     googleSignInBtn.classList.remove('returning-user');
     googleSignInBtn.disabled = false;
+
+    // Hide "Use different account" link
+    if (useDifferentAccountBtn) {
+        useDifferentAccountBtn.style.display = 'none';
+    }
 }
 
 // Proceed to app after user clicks sign-in
@@ -185,6 +207,64 @@ async function handleSignOut() {
             debugError('Sign-out error:', error);
             alert('Failed to sign out. Please try again.');
         }
+    }
+}
+
+// Handle Switch Account (from user dropdown when logged in)
+async function handleSwitchAccount() {
+    if (sidebarUser) sidebarUser.classList.remove('open');
+
+    try {
+        // Sign out first
+        await signOut(auth);
+        debugLog('Signed out for account switch');
+
+        // Immediately trigger new sign-in with account selector
+        userClickedSignIn = true;
+        googleSignInBtn.disabled = true;
+        googleSignInBtn.querySelector('span').textContent = 'Signing in...';
+
+        const result = await signInWithPopup(auth, googleProvider);
+        debugLog('Successfully switched to:', result.user.email);
+    } catch (error) {
+        debugError('Switch account error:', error);
+        userClickedSignIn = false;
+
+        if (error.code !== 'auth/popup-closed-by-user') {
+            alert('Failed to switch account. Please try again.');
+        }
+        resetSignInButton();
+    }
+}
+
+// Handle "Use different account" on login screen
+async function handleUseDifferentAccount() {
+    // Clear cached user so we don't auto-continue
+    cachedUser = null;
+
+    // Reset UI
+    resetSignInButton();
+
+    // Trigger sign-in which will show account selector (due to prompt: 'select_account')
+    userClickedSignIn = true;
+    googleSignInBtn.disabled = true;
+    googleSignInBtn.querySelector('span').textContent = 'Signing in...';
+
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        debugLog('Successfully signed in with different account:', result.user.email);
+    } catch (error) {
+        debugError('Sign-in error:', error);
+        userClickedSignIn = false;
+
+        if (error.code !== 'auth/popup-closed-by-user') {
+            let errorMessage = 'Failed to sign in. Please try again.';
+            if (error.code === 'auth/popup-blocked') {
+                errorMessage = 'Pop-up blocked. Please allow pop-ups for this site.';
+            }
+            alert(errorMessage);
+        }
+        resetSignInButton();
     }
 }
 

@@ -253,6 +253,25 @@ a:hover { color: var(--color-primary-light); }
     flex-shrink: 0;
 }
 
+.btn-text-link {
+    display: block;
+    margin: var(--space-md) auto 0;
+    padding: var(--space-sm) var(--space-md);
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color var(--transition-base);
+}
+
+.btn-text-link:hover {
+    color: var(--color-primary-hover);
+    text-decoration: underline;
+}
+
 .login-divider {
     display: flex;
     align-items: center;

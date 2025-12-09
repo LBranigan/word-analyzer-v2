@@ -19,6 +19,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
+// Force account selection popup every time (allows switching accounts)
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Export for use in other modules
 export { auth, db, googleProvider, signInWithPopup, onAuthStateChanged, signOut, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where };
