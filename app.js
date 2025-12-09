@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 16:35';
+const BUILD_TIMESTAMP = '2025-12-08 16:39';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -881,17 +881,26 @@ function validateOCRWords(words) {
         if (isValidWord(text)) {
             validatedWords.push(word);
         } else {
-            // Try to split merged words
-            const splitResult = trySplitMergedWord(text, word);
-            if (splitResult) {
-                validatedWords.push(...splitResult);
-                debugLog('Split suspicious word:', word.text, '→', splitResult.map(w => w.text).join(' + '));
-            } else {
-                // Keep the word but mark it as suspicious
-                word.suspicious = true;
+            // Try to correct OCR errors first (e.g., "merly" → "nearly")
+            const corrected = tryCorrectOCRWord(text);
+            if (corrected) {
+                word.text = corrected;
+                word.correctedFrom = text;
                 validatedWords.push(word);
-                suspiciousCount++;
-                debugLog('Suspicious OCR word:', word.text);
+                debugLog('Corrected OCR word:', text, '→', corrected);
+            } else {
+                // Try to split merged words
+                const splitResult = trySplitMergedWord(text, word);
+                if (splitResult) {
+                    validatedWords.push(...splitResult);
+                    debugLog('Split suspicious word:', word.text, '→', splitResult.map(w => w.text).join(' + '));
+                } else {
+                    // Keep the word but mark it as suspicious
+                    word.suspicious = true;
+                    validatedWords.push(word);
+                    suspiciousCount++;
+                    debugLog('Suspicious OCR word:', word.text);
+                }
             }
         }
     }
@@ -930,11 +939,123 @@ function isValidWord(text) {
     const impossibleClusters = /[bcdfghjklmnpqrstvwxz]{5,}|[aeiou]{4,}|ww|xx|kk|vv|jj|qq/i;
     if (impossibleClusters.test(text)) return false;
 
-    // Allow proper nouns and names (capitalized in original)
-    // If word is reasonably short and has normal letter patterns, allow it
-    if (text.length <= 8 && /^[a-z]+$/.test(text)) return true;
-
+    // Word not found in dictionary - it's likely an OCR error
     return false;
+}
+
+// Try to correct OCR errors by finding similar valid words
+function tryCorrectOCRWord(text) {
+    // Common OCR character confusions
+    const ocrConfusions = [
+        ['m', 'n'], ['n', 'm'], ['rn', 'm'], ['m', 'rn'],
+        ['l', 'i'], ['i', 'l'], ['l', '1'], ['1', 'l'],
+        ['o', '0'], ['0', 'o'], ['O', '0'], ['0', 'O'],
+        ['c', 'e'], ['e', 'c'], ['a', 'o'], ['o', 'a'],
+        ['u', 'v'], ['v', 'u'], ['w', 'vv'], ['vv', 'w'],
+        ['h', 'b'], ['b', 'h'], ['d', 'cl'], ['cl', 'd'],
+        ['g', 'q'], ['q', 'g'], ['f', 't'], ['t', 'f'],
+        ['s', '5'], ['5', 's'], ['B', '8'], ['8', 'B'],
+        ['li', 'h'], ['h', 'li'], ['ii', 'u'], ['u', 'ii'],
+        ['nn', 'm'], ['m', 'nn'], ['vv', 'w'], ['w', 'vv'],
+        ['ri', 'n'], ['n', 'ri'], ['ni', 'm'], ['m', 'ni']
+    ];
+
+    // Try each confusion substitution
+    for (const [from, to] of ocrConfusions) {
+        if (text.includes(from)) {
+            const corrected = text.replace(from, to);
+            if (COMMON_WORDS.has(corrected)) {
+                return corrected;
+            }
+            // Also check with suffixes
+            if (isValidWord(corrected)) {
+                return corrected;
+            }
+        }
+    }
+
+    // Try single character substitutions for short words
+    if (text.length <= 8) {
+        for (let i = 0; i < text.length; i++) {
+            for (const char of 'abcdefghijklmnopqrstuvwxyz') {
+                if (char !== text[i]) {
+                    const candidate = text.slice(0, i) + char + text.slice(i + 1);
+                    if (COMMON_WORDS.has(candidate)) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+    }
+
+    // Try inserting a missing character (OCR dropped a letter)
+    if (text.length <= 7) {
+        for (let i = 0; i <= text.length; i++) {
+            for (const char of 'abcdefghijklmnopqrstuvwxyz') {
+                const candidate = text.slice(0, i) + char + text.slice(i);
+                if (COMMON_WORDS.has(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+    }
+
+    // Try removing an extra character (OCR added a letter)
+    if (text.length >= 4) {
+        for (let i = 0; i < text.length; i++) {
+            const candidate = text.slice(0, i) + text.slice(i + 1);
+            if (COMMON_WORDS.has(candidate)) {
+                return candidate;
+            }
+        }
+    }
+
+    // Try combined: substitute one char + insert one char (for 2-edit cases like "merly" → "nearly")
+    if (text.length <= 6) {
+        for (let subPos = 0; subPos < text.length; subPos++) {
+            for (const subChar of 'abcdefghijklmnopqrstuvwxyz') {
+                if (subChar !== text[subPos]) {
+                    const substituted = text.slice(0, subPos) + subChar + text.slice(subPos + 1);
+                    // Now try inserting a character
+                    for (let insPos = 0; insPos <= substituted.length; insPos++) {
+                        for (const insChar of 'aeiou') { // Most commonly dropped chars are vowels
+                            const candidate = substituted.slice(0, insPos) + insChar + substituted.slice(insPos);
+                            if (COMMON_WORDS.has(candidate)) {
+                                return candidate;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Last resort: find closest word by edit distance
+    const closest = findClosestWord(text);
+    if (closest) {
+        return closest;
+    }
+
+    return null; // Could not correct
+}
+
+// Find the closest word in dictionary using edit distance
+function findClosestWord(text) {
+    let bestMatch = null;
+    let bestDistance = 3; // Max edit distance to consider
+
+    for (const word of COMMON_WORDS) {
+        // Only check words of similar length
+        if (Math.abs(word.length - text.length) > 2) continue;
+
+        const distance = levenshteinDistance(text, word);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestMatch = word;
+        }
+    }
+
+    return bestMatch;
 }
 
 // Try to split a merged word into two valid words
