@@ -157,6 +157,15 @@ function showSection(sectionName, pushHistory = true) {
         updateProgress(sectionName);
     }
 
+    // Stop audio playback when leaving audio section
+    if (sectionName !== 'audio') {
+        const audioPlayer = document.getElementById('audio-player-main');
+        if (audioPlayer && !audioPlayer.paused) {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+        }
+    }
+
     // Stop camera when moving to results or setup (assessment done or starting over)
     // Keep camera alive when moving to image section (user might want to retake)
     if ((sectionName === 'results' || sectionName === 'setup') && state.mediaStream) {
@@ -322,18 +331,9 @@ async function playCountdownBeep() {
 
 if (recordBtn) {
     recordBtn.addEventListener('click', async () => {
-        // Disable button during countdown
+        // Disable button during setup
         recordBtn.disabled = true;
         recordBtn.classList.add('countdown-active');
-
-        // Play countdown beep (1 second total)
-        await playCountdownBeep();
-
-        // Re-enable button
-        recordBtn.disabled = false;
-        recordBtn.classList.remove('countdown-active');
-
-        // Start recording
 
         const durationSelect = document.getElementById('audio-duration');
         const bitrateSelect = document.getElementById('audio-bitrate');
@@ -435,9 +435,19 @@ if (recordBtn) {
                 stream.getTracks().forEach(track => track.stop());
             };
 
-            // Start recording with 1-second timeslices for reliability
+            // START RECORDING FIRST, then play beep
+            // This ensures we capture speech even if user starts during/immediately after beep
             state.mediaRecorder.start(1000);
             state.recordingStartTime = Date.now();
+            debugLog('Recording started, now playing countdown beep');
+
+            // Play countdown beep WHILE already recording
+            // The beep signals "start reading now" - but recording has already begun
+            await playCountdownBeep();
+
+            // Re-enable button after beep
+            recordBtn.disabled = false;
+            recordBtn.classList.remove('countdown-active');
 
             // Hide inline options during recording
             if (audioOptionsInline) audioOptionsInline.style.display = 'none';
@@ -915,22 +925,40 @@ function mergeHyphenatedWords(words) {
     const result = [];
     let i = 0;
 
+    // Various hyphen characters that might be used
+    const hyphenChars = ['-', '–', '—', '‐', '‑', '−'];
+    const endsWithHyphen = (text) => hyphenChars.some(h => text.endsWith(h));
+    const removeTrailingHyphen = (text) => {
+        for (const h of hyphenChars) {
+            if (text.endsWith(h)) return text.slice(0, -1);
+        }
+        return text;
+    };
+
     while (i < words.length) {
         const currentWord = words[i];
 
-        // Check if word ends with hyphen
-        if (currentWord.text.endsWith('-') && i + 1 < words.length) {
+        // Check if word ends with any hyphen character
+        if (endsWithHyphen(currentWord.text) && i + 1 < words.length) {
             const nextWord = words[i + 1];
 
-            // Check if next word is on a different line (y position differs significantly)
+            // Check if next word looks like a continuation (starts with lowercase letter)
+            // This is the key heuristic: hyphenated word breaks almost always continue with lowercase
+            const nextStartsLower = /^[a-z]/.test(nextWord.text);
+
+            // Also check line position as secondary confirmation
             const currentY = (currentWord.bbox.y0 + currentWord.bbox.y1) / 2;
             const nextY = (nextWord.bbox.y0 + nextWord.bbox.y1) / 2;
             const lineHeight = currentWord.bbox.y1 - currentWord.bbox.y0;
+            const onDifferentLine = Math.abs(nextY - currentY) > lineHeight * 0.3;
 
-            // If next word is on a different line (y differs by more than half line height)
-            if (Math.abs(nextY - currentY) > lineHeight * 0.5) {
+            // Merge if: next word starts lowercase AND (on different line OR next word is short fragment)
+            // Short fragments (< 5 chars) are likely continuations even on same line
+            const isShortFragment = nextWord.text.length < 5;
+
+            if (nextStartsLower && (onDifferentLine || isShortFragment)) {
                 // Merge the words: remove hyphen and combine
-                const mergedText = currentWord.text.slice(0, -1) + nextWord.text;
+                const mergedText = removeTrailingHyphen(currentWord.text) + nextWord.text;
 
                 // Combine bounding boxes (used for hit testing)
                 const mergedBbox = {
@@ -2010,6 +2038,37 @@ function analyzePronunciation(expectedWords, spokenWordInfo) {
         } else break;
     }
     analysis.aligned = alignment;
+
+    // Filter out hesitations that occur after words with commas (natural pauses)
+    if (analysis.errors.hesitations && analysis.errors.hesitations.length > 0 && alignment.length > 0) {
+        analysis.errors.hesitations = analysis.errors.hesitations.filter(h => {
+            // Find which aligned word this hesitation relates to by timing
+            const hesitationWord = spokenWordInfo[h.spokenIndex];
+            if (!hesitationWord || !hesitationWord.startTime) return true; // Keep if we can't determine
+
+            const hTime = parseFloat(hesitationWord.startTime.replace('s', ''));
+
+            // Find the aligned word that comes just before this hesitation
+            for (let i = 0; i < alignment.length; i++) {
+                const aligned = alignment[i];
+                if (aligned.endTime) {
+                    const aEndTime = parseFloat(aligned.endTime.replace('s', ''));
+                    // If this aligned word ends right before the hesitation
+                    if (aEndTime < hTime && hTime - aEndTime < 2.0) {
+                        // Check if the expected word ends with comma, semicolon, colon, or period
+                        const expectedText = aligned.expected || '';
+                        if (/[,;:]$/.test(expectedText) || /[,;:]["']?$/.test(expectedText)) {
+                            debugLog('Filtering hesitation after punctuation:', expectedText);
+                            return false; // Filter out this hesitation
+                        }
+                        break;
+                    }
+                }
+            }
+            return true; // Keep this hesitation
+        });
+    }
+
     return analysis;
 }
 
