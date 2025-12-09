@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 15:46';
+const BUILD_TIMESTAMP = '2025-12-08 16:04';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2840,6 +2840,38 @@ function viewHighlightedImage() {
                 ctx.lineTo(lRight - bracketWidth, lBottom);
                 ctx.stroke();
             }
+        }
+
+        // Draw stats overlay at top center
+        if (state.latestAnalysis) {
+            const totalWords = state.latestAnalysis.aligned?.length || 0;
+            const errors = (state.latestAnalysis.errors?.skippedWords?.length || 0) +
+                          (state.latestAnalysis.errors?.misreadWords?.length || 0) +
+                          (state.latestAnalysis.errors?.substitutedWords?.length || 0);
+
+            const statsText = `${totalWords} Total Words   ${errors} Errors`;
+
+            // Calculate font size based on image width (responsive)
+            const fontSize = Math.max(24, Math.min(48, img.width / 20));
+            ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+
+            // Measure text for centering
+            const textMetrics = ctx.measureText(statsText);
+            const textWidth = textMetrics.width;
+            const textHeight = fontSize;
+            const x = (img.width - textWidth) / 2;
+            const y = textHeight + 20; // 20px from top
+
+            // Draw background rectangle for readability
+            const bgPadding = 12;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.beginPath();
+            ctx.roundRect(x - bgPadding, y - textHeight - bgPadding/2, textWidth + bgPadding * 2, textHeight + bgPadding, 8);
+            ctx.fill();
+
+            // Draw text
+            ctx.fillStyle = 'white';
+            ctx.fillText(statsText, x, y);
         }
     });
 
