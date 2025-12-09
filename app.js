@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 11:34';
+const BUILD_TIMESTAMP = '2025-12-09 11:57';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -532,6 +532,9 @@ async function initCamera() {
     }
     camera.srcObject = null;
 
+    // Ensure muted attribute for iOS autoplay reliability
+    camera.muted = true;
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
@@ -539,10 +542,46 @@ async function initCamera() {
         camera.srcObject = stream;
         state.mediaStream = stream;
 
+        // Wait for video metadata to load (iOS Safari needs this before dimensions are available)
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Camera initialization timeout'));
+            }, 10000); // 10 second timeout
+
+            const onReady = () => {
+                clearTimeout(timeout);
+                camera.removeEventListener('loadedmetadata', onReady);
+                resolve();
+            };
+
+            // If already loaded (e.g., re-entering camera section), resolve immediately
+            if (camera.readyState >= 1) {
+                clearTimeout(timeout);
+                resolve();
+            } else {
+                camera.addEventListener('loadedmetadata', onReady);
+            }
+        });
+
         // Ensure video plays (some browsers need explicit play after srcObject change)
         await camera.play().catch(e => debugLog('Camera autoplay:', e.message));
+
+        // Additional wait for iOS Safari to have valid dimensions
+        await new Promise(resolve => {
+            const checkDimensions = () => {
+                if (camera.videoWidth > 0 && camera.videoHeight > 0) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(checkDimensions);
+                }
+            };
+            checkDimensions();
+        });
+
+        debugLog('Camera ready - dimensions:', camera.videoWidth, 'x', camera.videoHeight);
     } catch (error) {
         debugError('Error accessing camera:', error);
+        alert('Could not access camera. Please check permissions and try again.');
     }
 }
 
