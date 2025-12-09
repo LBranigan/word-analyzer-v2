@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 12:07';
+const BUILD_TIMESTAMP = '2025-12-09 12:12';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -535,10 +535,18 @@ async function initCamera() {
     // Ensure muted attribute for iOS autoplay reliability
     camera.muted = true;
 
+    // Check for camera API support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Camera not supported on this browser. Please try Safari or a different browser.');
+        return;
+    }
+
     try {
+        debugLog('Requesting camera access...');
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+            video: { facingMode: 'environment' }
         });
+        debugLog('Camera stream obtained:', stream.getVideoTracks().length, 'video tracks');
         camera.srcObject = stream;
         state.mediaStream = stream;
 
