@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 16:04';
+const BUILD_TIMESTAMP = '2025-12-08 16:13';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -2844,7 +2844,7 @@ function viewHighlightedImage() {
 
         // Draw stats overlay at top center
         if (state.latestAnalysis) {
-            const totalWords = state.latestAnalysis.aligned?.length || 0;
+            const totalWords = state.selectedWords?.size || 0;
             const errors = (state.latestAnalysis.errors?.skippedWords?.length || 0) +
                           (state.latestAnalysis.errors?.misreadWords?.length || 0) +
                           (state.latestAnalysis.errors?.substitutedWords?.length || 0);
