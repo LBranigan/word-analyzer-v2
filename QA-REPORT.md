@@ -1,10 +1,10 @@
 # Word Analyzer V2 - QA Report
 **Date:** December 8, 2025
-**Build:** 2025-12-08 20:48
+**Build:** 2025-12-08 21:39
 **Status:** All critical and medium priority issues resolved
 
 ## Executive Summary
-Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with all previously identified issues resolved. Recent enhancements include word-level audio playback, improved image export with stats overlay and green brackets, expanded phonetic equivalences (150+ homophones), and hyphenated word display improvements.
+Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with all previously identified issues resolved. Recent enhancements include streamlined audio recording UI with inline options and beep countdown, word-level audio playback with extended context, improved image export with stats overlay and green brackets, expanded phonetic equivalences (150+ homophones), and hyphenated word display improvements.
 
 ---
 
@@ -68,16 +68,29 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
 
 ## 4. Recent Enhancements (December 8, 2025)
 
-### 4.1 Word-Level Audio Playback (NEW)
+### 4.1 Streamlined Audio Recording UI (NEW - Latest)
+- **Location:** `index.html`, `app.js`, `styles.css`
+- **Modal Removed:** Audio options modal popup eliminated
+- **Inline Options:** Duration and Quality dropdowns now displayed directly in recording card
+  - Minimalist design with small dropdowns at top of recording interface
+  - Duration: 30s, 1 min, 2 min
+  - Quality: Low, Standard, High
+  - Options hidden during active recording, shown on re-record
+- **Beep Countdown:** Single 0.8-second beep (880Hz) plays before recording starts
+  - Uses Web Audio API oscillator for consistent cross-browser sound
+  - Button disabled during beep to prevent double-clicks
+- **CSS:** Added `.audio-options-inline`, `.audio-option`, `.form-select-mini` styles
+
+### 4.2 Word-Level Audio Playback (NEW)
 - **Location:** `app.js` - `playWordAudio()` function
 - Click any word in "Text with Error Highlighting" to hear that word's audio
-- Includes 0.5 seconds of context before and after each word
+- **Extended Context:** Includes 1.25 seconds of audio before and after each word (increased from 0.5s)
 - Works for correct words, misread words, substituted words, and hesitations
 - Play button shown in word popup with "Playing..." feedback
 - Uses Web Audio API to extract audio segment from recorded blob
 - Shows "Audio not available" for historical assessments without audio data
 
-### 4.2 Image Export Improvements (NEW)
+### 4.3 Image Export Improvements (NEW)
 - **Stats Overlay:** Shows "X Total Words  Y Errors" at top center
   - Dark semi-transparent background for readability
   - Font size scales responsively based on image width
@@ -87,20 +100,20 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
   - Increased padding from 5px to 8px
 - **Selected Words Count:** Uses actual selected word count (not aligned words)
 
-### 4.3 Hyphenated Word Display Improvement (NEW)
+### 4.4 Hyphenated Word Display Improvement (NEW)
 - Hyphenated words (e.g., "unpre-" + "dictable") still merged as single word
 - Each part now highlighted individually with its own bounding box
 - Prevents large yellow box covering multiple lines
 - Works for both selected (yellow) and unselected (teal) word display
 
-### 4.4 Expanded Phonetic Equivalences (NEW)
+### 4.5 Expanded Phonetic Equivalences (NEW)
 - Expanded from ~15 pairs to **150+ homophone pairs**
 - **Number homophones:** `won`/`one`/`1`, `eight`/`ate`, `two`/`to`/`too`, `four`/`for`/`fore`
 - **Common homophones:** `their`/`there`/`they're`, `your`/`you're`, `know`/`no`, `hear`/`here`
 - **Many more:** `write`/`right`/`rite`, `whole`/`hole`, `son`/`sun`, `week`/`weak`, etc.
 - Fixes issue where "won" spoken as "1" was incorrectly marked as error
 
-### 4.5 OCR Word Validation (REVERTED)
+### 4.6 OCR Word Validation (REVERTED)
 - **Note:** An OCR word validation layer was added and then removed
 - The validation was causing more misreadings than it fixed
 - OCR now uses raw output with only hyphenated word merging
@@ -181,9 +194,9 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
 
 | File | Lines | Notes |
 |------|-------|-------|
-| app.js | 3,949 | Main application logic |
-| styles.css | 2,510 | Complete styling |
-| index.html | 718 | All buttons typed, 108+ unique IDs |
+| app.js | 3,984 | Main application logic |
+| styles.css | 2,557 | Complete styling |
+| index.html | 700 | All buttons typed, modal removed |
 | modules/video-generator.js | 360 | Video export module |
 | utils.js | 256 | Utility functions |
 | firebase-auth.js | 216 | Authentication |
@@ -191,7 +204,7 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
 | firebase-api-key-manager.js | 197 | API key management |
 | firebase-wrappers.js | 105 | Database wrappers |
 | firebase-config.js | 24 | Firebase configuration |
-| **Total** | **8,770** | |
+| **Total** | **8,807** | |
 
 ### Compliance Documentation (not in git)
 | File | Purpose |
@@ -222,6 +235,9 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
 - [x] Improve image export with stats and green brackets
 - [x] Expand phonetic equivalences for homophones
 - [x] Fix hyphenated word display
+- [x] Replace audio options modal with inline dropdowns
+- [x] Add beep countdown before recording
+- [x] Extend word audio context to 1.25s
 
 ### Future Improvements (Optional)
 1. Consider state management library for complex state
@@ -248,8 +264,10 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
 - [x] Click logo to start new assessment
 
 ### New Features (Dec 8)
+- [x] Inline audio options (Duration/Quality dropdowns in recording card)
+- [x] Beep countdown before recording starts (0.8s tone)
 - [x] Click word to see popup with play button
-- [x] Play word audio (with 0.5s padding)
+- [x] Play word audio (with 1.25s padding before and after)
 - [x] Image export shows stats overlay
 - [x] Image export shows green brackets at reading range
 - [x] Hyphenated words show as separate highlighted parts
@@ -295,5 +313,5 @@ Comprehensive QA analysis of Word Analyzer V2. The app is fully functional with 
 
 ---
 
-*Report updated: December 8, 2025 20:48*
+*Report updated: December 8, 2025 21:39*
 *Generated by Claude Code QA Analysis*
