@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 16:13';
+const BUILD_TIMESTAMP = '2025-12-08 16:20';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -719,7 +719,7 @@ function mergeHyphenatedWords(words) {
                 // Merge the words: remove hyphen and combine
                 const mergedText = currentWord.text.slice(0, -1) + nextWord.text;
 
-                // Combine bounding boxes
+                // Combine bounding boxes (used for hit testing)
                 const mergedBbox = {
                     x0: Math.min(currentWord.bbox.x0, nextWord.bbox.x0),
                     y0: Math.min(currentWord.bbox.y0, nextWord.bbox.y0),
@@ -727,9 +727,16 @@ function mergeHyphenatedWords(words) {
                     y1: Math.max(currentWord.bbox.y1, nextWord.bbox.y1)
                 };
 
+                // Store individual parts for separate highlighting
+                const parts = [
+                    { bbox: { ...currentWord.bbox }, text: currentWord.text },
+                    { bbox: { ...nextWord.bbox }, text: nextWord.text }
+                ];
+
                 result.push({
                     text: mergedText,
                     bbox: mergedBbox,
+                    parts: parts, // Store parts for individual highlighting
                     vertices: currentWord.vertices // Keep first word's vertices for selection
                 });
 
@@ -794,18 +801,38 @@ function performRedraw() {
         // Draw word boxes
         if (state.ocrData && state.ocrData.words) {
             state.ocrData.words.forEach((word, index) => {
-                const { x0, y0, x1, y1 } = word.bbox;
-
                 if (state.selectedWords.has(index)) {
                     ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-                    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
                     ctx.strokeStyle = 'rgba(255, 200, 0, 0.9)';
                     ctx.lineWidth = 3 / state.zoom;
+
+                    // If word has parts (hyphenated), draw each part separately
+                    if (word.parts && word.parts.length > 0) {
+                        word.parts.forEach(part => {
+                            const { x0, y0, x1, y1 } = part.bbox;
+                            ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+                            ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+                        });
+                    } else {
+                        const { x0, y0, x1, y1 } = word.bbox;
+                        ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+                        ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+                    }
                 } else {
                     ctx.strokeStyle = 'rgba(26, 83, 92, 0.3)';
                     ctx.lineWidth = 1 / state.zoom;
+
+                    // If word has parts (hyphenated), draw each part separately
+                    if (word.parts && word.parts.length > 0) {
+                        word.parts.forEach(part => {
+                            const { x0, y0, x1, y1 } = part.bbox;
+                            ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+                        });
+                    } else {
+                        const { x0, y0, x1, y1 } = word.bbox;
+                        ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+                    }
                 }
-                ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
             });
         }
 
