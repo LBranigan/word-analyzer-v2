@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 16:24';
+const BUILD_TIMESTAMP = '2025-12-08 16:26';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -1819,11 +1819,70 @@ function levenshteinDistance(str1, str2) {
 
 // ============ PHONETIC EQUIVALENCES ============
 const phoneticEquivalences = {
+    // Names
     'graham': ['gram', 'grahm'], 'michael': ['mike', 'micheal'], 'stephen': ['steven', 'stefan'],
     'catherine': ['katherine', 'kathryn'], 'anne': ['ann'], 'sara': ['sarah'], 'jon': ['john'],
-    'knight': ['night'], 'know': ['no'], 'knew': ['new'], 'write': ['right', 'rite'],
-    'whole': ['hole'], 'hour': ['our'], 'their': ['there', 'theyre'], 'your': ['youre'],
-    'its': ['its'], 'to': ['too', 'two'], 'by': ['bye', 'buy'], 'for': ['four', 'fore']
+    // Common homophones
+    'knight': ['night'], 'know': ['no'], 'knew': ['new'], 'write': ['right', 'rite', 'wright'],
+    'whole': ['hole'], 'hour': ['our'], 'their': ['there', 'theyre', "they're"],
+    'your': ['youre', "you're", 'yore'], 'its': ["it's", 'its'],
+    'to': ['too', 'two'], 'by': ['bye', 'buy'], 'for': ['four', 'fore'],
+    // Number homophones (critical: "won" sounds like "one"/1)
+    'one': ['won', '1'], 'eight': ['ate', '8'], 'two': ['to', 'too', '2'],
+    'four': ['for', 'fore', '4'], 'six': ['sicks', '6'], 'see': ['sea', 'c'],
+    // More homophones
+    'be': ['bee'], 'been': ['bin'], 'bare': ['bear'], 'blue': ['blew'],
+    'break': ['brake'], 'buy': ['by', 'bye'], 'cell': ['sell'],
+    'cent': ['sent', 'scent'], 'dear': ['deer'], 'die': ['dye'],
+    'fair': ['fare'], 'flour': ['flower'], 'hair': ['hare'], 'heal': ['heel', "he'll"],
+    'hear': ['here'], 'hi': ['high'], 'him': ['hymn'], 'i': ['eye', 'aye'],
+    'in': ['inn'], 'knot': ['not'], 'lead': ['led'], 'made': ['maid'],
+    'mail': ['male'], 'main': ['mane', 'maine'], 'meat': ['meet', 'mete'],
+    'none': ['nun'], 'oh': ['owe', 'o'], 'or': ['oar', 'ore'],
+    'pair': ['pare', 'pear'], 'peace': ['piece'], 'plain': ['plane'],
+    'poor': ['pour', 'pore'], 'pray': ['prey'], 'principal': ['principle'],
+    'rain': ['reign', 'rein'], 'read': ['reed', 'red'], 'road': ['rode', 'rowed'],
+    'role': ['roll'], 'root': ['route'], 'rose': ['rows'],
+    'sail': ['sale'], 'scene': ['seen'], 'seam': ['seem'],
+    'so': ['sew', 'sow'], 'sole': ['soul'], 'some': ['sum'],
+    'son': ['sun'], 'stair': ['stare'], 'stake': ['steak'],
+    'stationary': ['stationery'], 'steal': ['steel'], 'suite': ['sweet'],
+    'tail': ['tale'], 'than': ['then'], 'threw': ['through', 'thru'],
+    'tide': ['tied'], 'waist': ['waste'], 'wait': ['weight'],
+    'way': ['weigh', 'whey'], 'weak': ['week'], 'wear': ['where', 'ware'],
+    'weather': ['whether'], 'which': ['witch'], 'wood': ['would'],
+    'worn': ['warn'], 'you': ['ewe', 'yew'], 'ant': ['aunt'],
+    'allowed': ['aloud'], 'alter': ['altar'], 'band': ['banned'],
+    'board': ['bored'], 'born': ['borne'], 'boy': ['buoy'],
+    'bread': ['bred'], 'ceiling': ['sealing'], 'cheap': ['cheep'],
+    'chews': ['choose'], 'close': ['clothes'], 'coarse': ['course'],
+    'creek': ['creak'], 'crews': ['cruise'], 'days': ['daze'],
+    'doe': ['dough'], 'done': ['dun'], 'dual': ['duel'],
+    'find': ['fined'], 'fir': ['fur'], 'flea': ['flee'],
+    'flew': ['flu', 'flue'], 'gene': ['jean'], 'grate': ['great'],
+    'groan': ['grown'], 'guest': ['guessed'], 'haul': ['hall'],
+    'horse': ['hoarse'], 'idle': ['idol', 'idyll'], 'isle': ['aisle', "i'll"],
+    'jam': ['jamb'], 'knead': ['need'], 'knows': ['nose'],
+    'lessen': ['lesson'], 'links': ['lynx'], 'loan': ['lone'],
+    'loot': ['lute'], 'medal': ['meddle'], 'might': ['mite'],
+    'miner': ['minor'], 'missed': ['mist'], 'moose': ['mousse'],
+    'morning': ['mourning'], 'muscle': ['mussel'], 'naval': ['navel'],
+    'packed': ['pact'], 'pail': ['pale'], 'pain': ['pane'],
+    'passed': ['past'], 'patience': ['patients'], 'pause': ['paws'],
+    'peak': ['peek', 'pique'], 'pedal': ['peddle', 'petal'],
+    'pleas': ['please'], 'pole': ['poll'], 'presence': ['presents'],
+    'profit': ['prophet'], 'rack': ['wrack'], 'raise': ['rays', 'raze'],
+    'rap': ['wrap'], 'real': ['reel'], 'ring': ['wring'],
+    'seas': ['sees', 'seize'], 'sew': ['so', 'sow'],
+    'shone': ['shown'], 'side': ['sighed'], 'sight': ['site', 'cite'],
+    'soar': ['sore'], 'soared': ['sword'], 'staid': ['stayed'],
+    'straight': ['strait'], 'teas': ['tees'], 'their': ['there', "they're"],
+    'throne': ['thrown'], 'toe': ['tow'], 'vain': ['vane', 'vein'],
+    'vary': ['very'], 'wade': ['weighed'], 'wail': ['whale'],
+    'want': ['wont'], 'war': ['wore'], 'wave': ['waive'],
+    'we': ['wee'], 'we\'d': ['weed'], "we'll": ['wheel'],
+    'whose': ["who's"], 'wine': ['whine'], 'won': ['one', '1'],
+    'wrap': ['rap'], 'yoke': ['yolk'], 'allowed': ['aloud']
 };
 
 function arePhoneticEquivalents(word1, word2) {
