@@ -6,7 +6,7 @@
 import { showAppReady, updateLoadingStatus, getCurrentUser } from './firebase-auth.js';
 import { loadApiKeyFromFirebase, saveApiKeyToFirebase, validateApiKey, trackApiUsage } from './firebase-api-key-manager.js';
 import * as FirebaseDB from './firebase-db.js';
-import { escapeHtml, debugLog, debugError, getAccuracyClassification } from './utils.js';
+import { escapeHtml, debugLog, debugError, debugWarn, getAccuracyClassification } from './utils.js';
 
 // ============ GLOBAL STATE ============
 const state = {
@@ -75,15 +75,27 @@ const imageCache = {
     img: null,
     src: null,
     load(src) {
-        if (this.src === src && this.img && this.img.complete) {
+        if (this.src === src && this.img && this.img.complete && this.img.naturalWidth > 0) {
             return Promise.resolve(this.img);
         }
         this.src = src;
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
-                this.img = img;
-                resolve(img);
+                // Validate image loaded correctly (fixes blank image issues)
+                if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                    this.img = img;
+                    resolve(img);
+                } else {
+                    debugError('Image loaded but has invalid dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+                    reject(new Error('Image loaded with invalid dimensions'));
+                }
+            };
+            img.onerror = (e) => {
+                debugError('Failed to load image:', e);
+                this.src = null;
+                this.img = null;
+                reject(new Error('Failed to load image'));
             };
             img.src = src;
         });
@@ -104,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 21:39';
+const BUILD_TIMESTAMP = '2025-12-09 13:45';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -567,9 +579,19 @@ function showCaptureSuccess() {
 
 if (captureBtn) {
     captureBtn.addEventListener('click', () => {
+        // Validate video dimensions before capture (fixes Galaxy Fold Z blank image bug)
+        const videoWidth = camera.videoWidth;
+        const videoHeight = camera.videoHeight;
+
+        if (!videoWidth || !videoHeight || videoWidth < 10 || videoHeight < 10) {
+            debugWarn('Camera not ready - videoWidth:', videoWidth, 'videoHeight:', videoHeight);
+            alert('Camera not ready. Please wait a moment and try again.');
+            return;
+        }
+
         const ctx = cameraCanvas.getContext('2d');
-        cameraCanvas.width = camera.videoWidth;
-        cameraCanvas.height = camera.videoHeight;
+        cameraCanvas.width = videoWidth;
+        cameraCanvas.height = videoHeight;
         ctx.drawImage(camera, 0, 0);
 
         state.capturedImage = cameraCanvas.toDataURL('image/jpeg', 1.0);
@@ -807,6 +829,9 @@ function drawImageWithWords() {
 
         redrawCanvas();
         setupCanvasInteraction();
+    }).catch(err => {
+        debugError('Failed to load image for word selection:', err);
+        alert('Failed to load the captured image. Please go back and recapture the photo.');
     });
 }
 
@@ -890,6 +915,8 @@ function performRedraw() {
             ctx.arc(state.endPoint.x, state.endPoint.y, 15 / state.zoom, 0, 2 * Math.PI);
             ctx.fill();
         }
+    }).catch(err => {
+        debugError('Failed to redraw canvas:', err);
     });
 }
 
@@ -2995,6 +3022,8 @@ function viewHighlightedImage() {
             ctx.fillStyle = 'white';
             ctx.fillText(statsText, x, y);
         }
+    }).catch(err => {
+        debugError('Failed to load image for modal:', err);
     });
 
     // Close modal on X button or backdrop click
