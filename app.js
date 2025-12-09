@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 12:38';
+const BUILD_TIMESTAMP = '2025-12-09 12:42';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -343,12 +343,12 @@ if (recordBtn) {
         debugLog('Recording settings - duration:', state.recordingDuration, 'bitrate:', selectedBitrate);
 
         try {
-            // Optimized audio constraints for speech recognition
+            // High quality audio constraints
             const audioConstraints = {
                 audio: {
-                    sampleRate: { ideal: 16000 },  // Optimal for speech recognition
-                    echoCancellation: { ideal: false },
-                    noiseSuppression: { ideal: false },
+                    sampleRate: { ideal: 48000 },
+                    echoCancellation: { ideal: true },
+                    noiseSuppression: { ideal: true },
                     autoGainControl: { ideal: true }
                 }
             };
