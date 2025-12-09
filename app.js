@@ -38,10 +38,6 @@ const state = {
     zoom: 1,
     panX: 0,
     panY: 0,
-    // Canvas scaling for high-DPI devices (Galaxy Fold)
-    canvasScale: 1,
-    originalImageWidth: 0,
-    originalImageHeight: 0,
     // Analysis results (for PDF/video export)
     latestAnalysis: null,
     latestExpectedWords: null,
@@ -120,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 12:32';
+const BUILD_TIMESTAMP = '2025-12-09 12:38';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -984,23 +980,8 @@ function updateLoadingStep(step) {
 function drawImageWithWords() {
     imageCache.load(state.capturedImage).then(img => {
         const canvas = selectionCanvas;
-
-        // Limit canvas size to prevent GPU issues on high-DPI devices (e.g., Galaxy Fold)
-        const MAX_CANVAS_DIM = 1200;
-        let scale = 1;
-
-        if (img.width > MAX_CANVAS_DIM || img.height > MAX_CANVAS_DIM) {
-            scale = Math.min(MAX_CANVAS_DIM / img.width, MAX_CANVAS_DIM / img.height);
-            debugLog('Scaling canvas from', img.width, 'x', img.height, 'by factor', scale.toFixed(2));
-        }
-
-        // Store scale factor for coordinate conversions
-        state.canvasScale = scale;
-        state.originalImageWidth = img.width;
-        state.originalImageHeight = img.height;
-
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
+        canvas.width = img.width;
+        canvas.height = img.height;
 
         redrawCanvas();
         setupCanvasInteraction();
@@ -1028,21 +1009,18 @@ function performRedraw() {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Get scale factor (default to 1 if not set)
-        const scale = state.canvasScale || 1;
-
-        // Apply zoom/pan, combined with base scale
-        ctx.setTransform(state.zoom * scale, 0, 0, state.zoom * scale, state.panX, state.panY);
+        // Apply zoom/pan
+        ctx.setTransform(state.zoom, 0, 0, state.zoom, state.panX, state.panY);
 
         ctx.drawImage(img, 0, 0);
 
-        // Draw word boxes (coordinates are in original image space)
+        // Draw word boxes
         if (state.ocrData && state.ocrData.words) {
             state.ocrData.words.forEach((word, index) => {
                 if (state.selectedWords.has(index)) {
                     ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
                     ctx.strokeStyle = 'rgba(255, 200, 0, 0.9)';
-                    ctx.lineWidth = 3 / (state.zoom * scale);
+                    ctx.lineWidth = 3 / state.zoom;
 
                     // If word has parts (hyphenated), draw each part separately
                     if (word.parts && word.parts.length > 0) {
@@ -1058,7 +1036,7 @@ function performRedraw() {
                     }
                 } else {
                     ctx.strokeStyle = 'rgba(26, 83, 92, 0.3)';
-                    ctx.lineWidth = 1 / (state.zoom * scale);
+                    ctx.lineWidth = 1 / state.zoom;
 
                     // If word has parts (hyphenated), draw each part separately
                     if (word.parts && word.parts.length > 0) {
@@ -1077,7 +1055,7 @@ function performRedraw() {
         // Draw selection line if drawing
         if (state.isDrawing && state.startPoint && state.endPoint) {
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
-            ctx.lineWidth = 8 / (state.zoom * scale);
+            ctx.lineWidth = 8 / state.zoom;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(state.startPoint.x, state.startPoint.y);
@@ -1087,10 +1065,10 @@ function performRedraw() {
             // Draw circles at endpoints
             ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
             ctx.beginPath();
-            ctx.arc(state.startPoint.x, state.startPoint.y, 15 / (state.zoom * scale), 0, 2 * Math.PI);
+            ctx.arc(state.startPoint.x, state.startPoint.y, 15 / state.zoom, 0, 2 * Math.PI);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(state.endPoint.x, state.endPoint.y, 15 / (state.zoom * scale), 0, 2 * Math.PI);
+            ctx.arc(state.endPoint.x, state.endPoint.y, 15 / state.zoom, 0, 2 * Math.PI);
             ctx.fill();
         }
     }).catch(err => {
@@ -1199,12 +1177,9 @@ function getCanvasPoint(e) {
     const screenX = (clientX - rect.left) * scaleX;
     const screenY = (clientY - rect.top) * scaleY;
 
-    // Account for canvas scale factor (for Galaxy Fold compatibility)
-    const baseScale = state.canvasScale || 1;
-
     return {
-        x: (screenX - state.panX) / (state.zoom * baseScale),
-        y: (screenY - state.panY) / (state.zoom * baseScale)
+        x: (screenX - state.panX) / state.zoom,
+        y: (screenY - state.panY) / state.zoom
     };
 }
 
