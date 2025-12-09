@@ -104,7 +104,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-08 21:34';
+const BUILD_TIMESTAMP = '2025-12-08 21:36';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -295,15 +295,9 @@ function playBeep(frequency = 880, duration = 0.15, volume = 0.3) {
     });
 }
 
-// Play countdown beeps (3 short beeps then 1 longer higher beep)
+// Play a single long beep before recording
 async function playCountdownBeep() {
-    // Three short beeps
-    for (let i = 0; i < 3; i++) {
-        await playBeep(660, 0.1, 0.25);
-        await new Promise(r => setTimeout(r, 233));
-    }
-    // Final higher beep
-    await playBeep(880, 0.2, 0.3);
+    await playBeep(880, 0.8, 0.3);
 }
 
 if (recordBtn) {
