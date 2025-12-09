@@ -11,7 +11,21 @@
       "Bash(cat:*)",
       "Bash(curl:*)",
       "Bash(gh api:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git config:*)",
+      "Bash(git -c user.name=\"LBranigan\" -c user.email=\"LBranigan@users.noreply.github.com\" commit -m \"$(cat <<''EOF''\nfix: Galaxy Fold Z blank image bug after photo capture\n\n- Add video dimension validation before capture to prevent 0x0 canvas\n- Add error handling to imageCache (onerror handler, naturalWidth validation)\n- Add .catch() handlers to all imageCache.load() calls\n- Update build timestamp to 2025-12-09 13:45\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(gh auth status:*)",
+      "Bash(cmd.exe /c \"git push origin master\")",
+      "Bash(cmd.exe /c \"\"\"C:\\Program Files\\Git\\cmd\\git.exe\"\" push origin master\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\Users\\brani\\desktop\\Claude projects\\word-analyzer-v2''; git push origin master\")",
+      "Bash(ssh:*)",
+      "Bash(gh auth:*)",
+      "Bash(/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe:*)",
+      "Bash(/mnt/c/Program Files \\(x86\\)/Git Credential Manager/git-credential-manager.exe:*)",
+      "Bash(cmd.exe /c \"where git-credential-manager.exe\")",
+      "Bash(cmd.exe /c \"git --version\")",
+      "Bash(ssh-add:*)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": [],
     "ask": []
