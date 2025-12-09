@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 11:57';
+const BUILD_TIMESTAMP = '2025-12-09 12:07';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -542,11 +542,12 @@ async function initCamera() {
         camera.srcObject = stream;
         state.mediaStream = stream;
 
-        // Wait for video metadata to load (iOS Safari needs this before dimensions are available)
-        await new Promise((resolve, reject) => {
+        // Wait for video metadata to load (iOS needs this before dimensions are available)
+        await new Promise((resolve) => {
             const timeout = setTimeout(() => {
-                reject(new Error('Camera initialization timeout'));
-            }, 10000); // 10 second timeout
+                debugLog('Camera metadata timeout - proceeding anyway');
+                resolve();
+            }, 5000);
 
             const onReady = () => {
                 clearTimeout(timeout);
@@ -554,7 +555,6 @@ async function initCamera() {
                 resolve();
             };
 
-            // If already loaded (e.g., re-entering camera section), resolve immediately
             if (camera.readyState >= 1) {
                 clearTimeout(timeout);
                 resolve();
@@ -563,13 +563,20 @@ async function initCamera() {
             }
         });
 
-        // Ensure video plays (some browsers need explicit play after srcObject change)
+        // Ensure video plays
         await camera.play().catch(e => debugLog('Camera autoplay:', e.message));
 
-        // Additional wait for iOS Safari to have valid dimensions
+        // Brief wait for iOS to have valid dimensions (with timeout)
         await new Promise(resolve => {
+            let attempts = 0;
+            const maxAttempts = 60; // ~1 second at 60fps
             const checkDimensions = () => {
+                attempts++;
                 if (camera.videoWidth > 0 && camera.videoHeight > 0) {
+                    debugLog('Camera ready - dimensions:', camera.videoWidth, 'x', camera.videoHeight);
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    debugLog('Camera dimension check timeout - proceeding anyway');
                     resolve();
                 } else {
                     requestAnimationFrame(checkDimensions);
@@ -577,11 +584,19 @@ async function initCamera() {
             };
             checkDimensions();
         });
-
-        debugLog('Camera ready - dimensions:', camera.videoWidth, 'x', camera.videoHeight);
     } catch (error) {
         debugError('Error accessing camera:', error);
-        alert('Could not access camera. Please check permissions and try again.');
+
+        // Provide specific error messages
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            alert('Camera permission denied. Please allow camera access in your browser settings and reload the page.');
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            alert('No camera found. Please make sure your device has a camera.');
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            alert('Camera is in use by another app. Please close other apps using the camera and try again.');
+        } else {
+            alert('Could not access camera: ' + error.message);
+        }
     }
 }
 
