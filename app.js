@@ -23,8 +23,8 @@ const state = {
     mediaRecorder: null,
     recordingStartTime: null,
     recordingDuration: 60,
-    // Audio metadata for Speech API
-    audioSampleRate: 48000,
+    // Audio metadata for Speech API (16kHz is Google's recommended rate for speech)
+    audioSampleRate: 16000,
     audioChannelCount: 1,
     audioMimeType: null,
     audioObjectUrl: null, // Track for cleanup
@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 14:35';
+const BUILD_TIMESTAMP = '2025-12-09 14:55';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -337,16 +337,22 @@ if (recordBtn) {
 
         const durationSelect = document.getElementById('audio-duration');
         const bitrateSelect = document.getElementById('audio-bitrate');
-        state.recordingDuration = parseFloat(durationSelect.value) * 60;
+        const requestedDuration = parseFloat(durationSelect.value) * 60;
+        // Google Speech API has a 60-second limit for synchronous recognition
+        // Account for: beep time (~1s) + timing imprecision (~0.5s) = 1.5s buffer
+        const API_DURATION_LIMIT = 60;
+        const BEEP_AND_BUFFER = 1.5;
+        state.recordingDuration = Math.min(requestedDuration, API_DURATION_LIMIT - BEEP_AND_BUFFER);
         const selectedBitrate = parseInt(bitrateSelect?.value || '32000');
 
-        debugLog('Recording settings - duration:', state.recordingDuration, 'bitrate:', selectedBitrate);
+        debugLog('Recording settings - requested:', requestedDuration, 'actual:', state.recordingDuration, 'bitrate:', selectedBitrate);
 
         try {
-            // High quality audio constraints
+            // Audio constraints optimized for speech recognition
+            // Google Speech API recommends 16kHz for speech (higher rates don't improve accuracy)
             const audioConstraints = {
                 audio: {
-                    sampleRate: { ideal: 48000 },
+                    sampleRate: { ideal: 16000 },
                     echoCancellation: { ideal: true },
                     noiseSuppression: { ideal: true },
                     autoGainControl: { ideal: true }
@@ -360,7 +366,7 @@ if (recordBtn) {
             const audioTrack = stream.getAudioTracks()[0];
             if (audioTrack) {
                 const settings = audioTrack.getSettings();
-                state.audioSampleRate = settings.sampleRate || 48000;
+                state.audioSampleRate = settings.sampleRate || 16000;
                 state.audioChannelCount = settings.channelCount || 1;
                 debugLog('Captured audio settings:', settings);
             }
