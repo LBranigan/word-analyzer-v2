@@ -116,7 +116,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 14:55';
+const BUILD_TIMESTAMP = '2025-12-09 17:22';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -339,10 +339,11 @@ if (recordBtn) {
         const bitrateSelect = document.getElementById('audio-bitrate');
         const requestedDuration = parseFloat(durationSelect.value) * 60;
         // Google Speech API has a 60-second limit for synchronous recognition
-        // Account for: beep time (~1s) + timing imprecision (~0.5s) = 1.5s buffer
+        // The beep (~0.8s) is part of the recording but isn't speech, so Google ignores it
+        // We only need a small buffer for timing imprecision in stopping the recording
         const API_DURATION_LIMIT = 60;
-        const BEEP_AND_BUFFER = 1.5;
-        state.recordingDuration = Math.min(requestedDuration, API_DURATION_LIMIT - BEEP_AND_BUFFER);
+        const TIMING_BUFFER = 0.2; // Small buffer for stop timing precision
+        state.recordingDuration = Math.min(requestedDuration, API_DURATION_LIMIT - TIMING_BUFFER);
         const selectedBitrate = parseInt(bitrateSelect?.value || '32000');
 
         debugLog('Recording settings - requested:', requestedDuration, 'actual:', state.recordingDuration, 'bitrate:', selectedBitrate);
@@ -925,6 +926,7 @@ async function processImage() {
 }
 
 // Merge hyphenated words that span lines (e.g., "unpre-" + "dictable" = "unpredictable")
+// Also handles cases where OCR doesn't detect the hyphen but the word is clearly split across lines
 function mergeHyphenatedWords(words) {
     if (!words || words.length < 2) return words;
 
@@ -941,29 +943,84 @@ function mergeHyphenatedWords(words) {
         return text;
     };
 
+    // Calculate approximate line boundaries to detect end-of-line words
+    // Group words by their Y position to identify lines
+    const lineGroups = [];
+    let currentLineWords = [];
+    let lastY = null;
+
+    for (const word of words) {
+        const wordY = (word.bbox.y0 + word.bbox.y1) / 2;
+        const lineHeight = word.bbox.y1 - word.bbox.y0;
+
+        if (lastY === null || Math.abs(wordY - lastY) < lineHeight * 0.5) {
+            currentLineWords.push(word);
+        } else {
+            if (currentLineWords.length > 0) {
+                lineGroups.push([...currentLineWords]);
+            }
+            currentLineWords = [word];
+        }
+        lastY = wordY;
+    }
+    if (currentLineWords.length > 0) {
+        lineGroups.push(currentLineWords);
+    }
+
+    // Build a map of which word is the last on its line
+    const lastWordOnLine = new Set();
+    const firstWordOnLine = new Set();
+    for (const lineWords of lineGroups) {
+        if (lineWords.length > 0) {
+            // Sort by X position to find actual first/last on each line
+            const sorted = [...lineWords].sort((a, b) => a.bbox.x0 - b.bbox.x0);
+            const last = sorted[sorted.length - 1];
+            const first = sorted[0];
+            lastWordOnLine.add(words.indexOf(last));
+            firstWordOnLine.add(words.indexOf(first));
+        }
+    }
+
     while (i < words.length) {
         const currentWord = words[i];
+        const hasExplicitHyphen = endsWithHyphen(currentWord.text);
 
-        // Check if word ends with any hyphen character
-        if (endsWithHyphen(currentWord.text) && i + 1 < words.length) {
+        if (i + 1 < words.length) {
             const nextWord = words[i + 1];
 
             // Check if next word looks like a continuation (starts with lowercase letter)
-            // This is the key heuristic: hyphenated word breaks almost always continue with lowercase
             const nextStartsLower = /^[a-z]/.test(nextWord.text);
 
-            // Also check line position as secondary confirmation
+            // Check line positions
             const currentY = (currentWord.bbox.y0 + currentWord.bbox.y1) / 2;
             const nextY = (nextWord.bbox.y0 + nextWord.bbox.y1) / 2;
             const lineHeight = currentWord.bbox.y1 - currentWord.bbox.y0;
             const onDifferentLine = Math.abs(nextY - currentY) > lineHeight * 0.3;
 
-            // Merge if: next word starts lowercase AND (on different line OR next word is short fragment)
-            // Short fragments (< 5 chars) are likely continuations even on same line
-            const isShortFragment = nextWord.text.length < 5;
+            // Check if this looks like a line-break word split:
+            // 1. Current word is last on its line (or ends with hyphen)
+            // 2. Next word is first on its line
+            // 3. Next word starts with lowercase
+            // 4. Current word doesn't end with common sentence-ending punctuation
+            const isLastOnLine = lastWordOnLine.has(i);
+            const isNextFirstOnLine = firstWordOnLine.has(i + 1);
+            const notSentenceEnd = !/[.!?;:,]$/.test(currentWord.text);
 
-            if (nextStartsLower && (onDifferentLine || isShortFragment)) {
-                // Merge the words: remove hyphen and combine
+            // Heuristic for detecting split words without explicit hyphen:
+            // - Both parts should look like word fragments (not standalone words)
+            // - Current word ends mid-word (no punctuation, often consonant clusters)
+            // - Next word is a short lowercase fragment
+            const isShortFragment = nextWord.text.length < 6;
+            const looksLikeSplitWord = isLastOnLine && isNextFirstOnLine && onDifferentLine &&
+                                       nextStartsLower && notSentenceEnd && isShortFragment;
+
+            // Merge if: explicit hyphen OR detected line-break split
+            const shouldMerge = hasExplicitHyphen ?
+                (nextStartsLower && (onDifferentLine || nextWord.text.length < 5)) :
+                looksLikeSplitWord;
+
+            if (shouldMerge) {
+                // Merge the words: remove hyphen (if any) and combine
                 const mergedText = removeTrailingHyphen(currentWord.text) + nextWord.text;
 
                 // Combine bounding boxes (used for hit testing)
@@ -987,7 +1044,8 @@ function mergeHyphenatedWords(words) {
                     vertices: currentWord.vertices // Keep first word's vertices for selection
                 });
 
-                debugLog('Merged hyphenated word:', currentWord.text, '+', nextWord.text, '=', mergedText);
+                const mergeType = hasExplicitHyphen ? 'hyphenated' : 'line-break split';
+                debugLog(`Merged ${mergeType} word:`, currentWord.text, '+', nextWord.text, '=', mergedText);
                 i += 2; // Skip both words
                 continue;
             }
