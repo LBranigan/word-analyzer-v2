@@ -25,7 +25,10 @@
       "Bash(cmd.exe /c \"where git-credential-manager.exe\")",
       "Bash(cmd.exe /c \"git --version\")",
       "Bash(ssh-add:*)",
-      "Bash(git remote set-url:*)"
+      "Bash(git remote set-url:*)",
+      "WebFetch(domain:bugs.webkit.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:discussions.apple.com)"
     ],
     "deny": [],
     "ask": []

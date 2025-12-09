@@ -120,7 +120,7 @@ const spineFill = document.getElementById('spine-fill');
 const progressSteps = document.querySelectorAll('.progress-step');
 
 // ============ BUILD TIMESTAMP ============
-const BUILD_TIMESTAMP = '2025-12-09 12:27';
+const BUILD_TIMESTAMP = '2025-12-09 12:32';
 const timestampEl = document.getElementById('build-timestamp');
 if (timestampEl) timestampEl.textContent = BUILD_TIMESTAMP;
 
@@ -537,33 +537,59 @@ async function initCamera() {
     cameraCanvas.style.display = 'none';
     if (cameraPreview) cameraPreview.style.display = 'none';
 
-    // Ensure muted attribute for iOS autoplay reliability
+    // Ensure required attributes for iOS
     camera.muted = true;
-
-    // Check if we already have an active stream - reuse it instead of requesting new one
-    // This prevents Chrome iOS from revoking permissions on repeated getUserMedia calls
-    if (state.mediaStream) {
-        const tracks = state.mediaStream.getVideoTracks();
-        const hasActiveTrack = tracks.some(track => track.readyState === 'live');
-
-        if (hasActiveTrack) {
-            debugLog('Reusing existing camera stream');
-            camera.srcObject = state.mediaStream;
-            await camera.play().catch(e => debugLog('Camera play:', e.message));
-            return;
-        } else {
-            // Stream exists but tracks are dead - clean up
-            debugLog('Existing stream dead, requesting new one');
-            state.mediaStream.getTracks().forEach(track => track.stop());
-            state.mediaStream = null;
-            camera.srcObject = null;
-        }
-    }
+    camera.setAttribute('playsinline', 'true');
+    camera.setAttribute('autoplay', 'true');
 
     // Check for camera API support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('Camera not supported on this browser. Please try Safari or a different browser.');
         return;
+    }
+
+    // Check if we already have an active stream - reuse it instead of requesting new one
+    // CRITICAL for iOS: Re-calling getUserMedia can revoke permissions (WebKit bug #215884)
+    if (state.mediaStream) {
+        try {
+            const tracks = state.mediaStream.getVideoTracks();
+            const hasActiveTrack = tracks.length > 0 && tracks.some(track => track.readyState === 'live');
+
+            if (hasActiveTrack) {
+                debugLog('Reusing existing camera stream');
+                camera.srcObject = state.mediaStream;
+                await camera.play().catch(e => debugLog('Camera play:', e.message));
+                return;
+            }
+        } catch (e) {
+            debugLog('Error checking existing stream:', e.message);
+        }
+
+        // Stream exists but tracks are dead - clean up
+        debugLog('Existing stream dead, will request new one');
+        try {
+            state.mediaStream.getTracks().forEach(track => track.stop());
+        } catch (e) { /* ignore */ }
+        state.mediaStream = null;
+        camera.srcObject = null;
+    }
+
+    // Check permission state first (where supported) to provide better UX
+    let permissionState = 'prompt';
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            const result = await navigator.permissions.query({ name: 'camera' });
+            permissionState = result.state;
+            debugLog('Camera permission state:', permissionState);
+
+            if (permissionState === 'denied') {
+                showCameraPermissionHelp();
+                return;
+            }
+        }
+    } catch (e) {
+        // Permissions API not supported (common on iOS), continue anyway
+        debugLog('Permissions API not available:', e.message);
     }
 
     try {
@@ -572,6 +598,15 @@ async function initCamera() {
             video: { facingMode: 'environment' }
         });
         debugLog('Camera stream obtained:', stream.getVideoTracks().length, 'video tracks');
+
+        // Set up track ended listener to detect iOS permission revocation
+        stream.getVideoTracks().forEach(track => {
+            track.onended = () => {
+                debugLog('Camera track ended unexpectedly');
+                state.mediaStream = null;
+            };
+        });
+
         camera.srcObject = stream;
         state.mediaStream = stream;
 
@@ -620,17 +655,57 @@ async function initCamera() {
     } catch (error) {
         debugError('Error accessing camera:', error);
 
-        // Provide specific error messages
+        // Provide specific error messages and guidance
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            alert('Camera permission denied. Please allow camera access in your browser settings and reload the page.');
+            showCameraPermissionHelp();
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
             alert('No camera found. Please make sure your device has a camera.');
         } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
             alert('Camera is in use by another app. Please close other apps using the camera and try again.');
+        } else if (error.name === 'OverconstrainedError') {
+            // Try again without constraints (iOS 17 bug workaround)
+            debugLog('OverconstrainedError - retrying without constraints');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                camera.srcObject = stream;
+                state.mediaStream = stream;
+                await camera.play().catch(e => debugLog('Camera play:', e.message));
+            } catch (retryError) {
+                alert('Could not access camera. Please try Safari browser instead.');
+            }
         } else {
             alert('Could not access camera: ' + error.message);
         }
     }
+}
+
+// Show helpful guidance when camera permission is denied
+function showCameraPermissionHelp() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isChrome = /CriOS/.test(navigator.userAgent);
+
+    let message = 'Camera permission denied.\n\n';
+
+    if (isIOS && isChrome) {
+        message += 'To fix this in Chrome on iOS:\n\n';
+        message += '1. Open Settings app\n';
+        message += '2. Scroll down and tap "Apps"\n';
+        message += '3. Tap "Chrome"\n';
+        message += '4. Make sure "Camera" is turned ON\n';
+        message += '5. Return to Chrome and refresh this page\n\n';
+        message += 'If still not working, try using Safari instead.';
+    } else if (isIOS) {
+        message += 'To fix this in Safari on iOS:\n\n';
+        message += '1. Open Settings app\n';
+        message += '2. Scroll down and tap "Safari"\n';
+        message += '3. Tap "Camera"\n';
+        message += '4. Select "Allow"\n';
+        message += '5. Return to Safari and refresh this page';
+    } else {
+        message += 'Please allow camera access in your browser settings and reload the page.';
+    }
+
+    alert(message);
 }
 
 function showCaptureSuccess() {
